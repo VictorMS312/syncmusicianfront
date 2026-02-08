@@ -1,0 +1,237 @@
+/* ============================================================
+   1. RESET E ESTRUTURA BASE
+   ============================================================ */
+html, body { 
+    margin: 0; 
+    padding: 0; 
+    height: 100%; 
+    width: 100%; 
+    background-color: #000 !important; 
+    color: #e0e0e0;
+    font-family: sans-serif; 
+    overflow: hidden; 
+    user-select: none; 
+    -webkit-tap-highlight-color: transparent;
+}
+
+#main-app { 
+    display: flex; 
+    flex-direction: column; 
+    height: 100vh; 
+    background-color: #000; 
+}
+
+/* ============================================================
+   2. HEADER E CONTROLES (TOPO)
+   ============================================================ */
+.header { 
+    background: #1f1f1f; 
+    padding: 15px; 
+    border-bottom: 2px solid #333; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+}
+
+.id-display { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+}
+
+.controls { 
+    padding: 10px; 
+    display: flex; 
+    gap: 5px; 
+    background: #181818; 
+    align-items: center; 
+}
+
+input#url-input { 
+    flex: 1; 
+    min-width: 120px; 
+    background: #333; 
+    color: white; 
+    border: 1px solid #444; 
+    padding: 12px; 
+    border-radius: 8px; 
+}
+
+/* ============================================================
+   3. BOTÕES
+   ============================================================ */
+.btn-action { 
+    background: #444; 
+    color: white; 
+    padding: 8px 12px; 
+    border-radius: 5px; 
+    font-size: 11px; 
+    cursor: pointer; 
+    border: none; 
+    font-weight: bold; 
+}
+
+.btn-qr { background: #fff !important; color: #000 !important; }
+
+.btn-main { 
+    background: #2563eb; 
+    color: white; 
+    cursor: pointer; 
+    font-weight: bold; 
+    padding: 12px; 
+    border-radius: 8px; 
+    border: none; 
+    white-space: nowrap;
+}
+
+.btn-danger { 
+    background: #b91c1c; 
+    color: white; 
+    padding: 12px; 
+    border-radius: 8px; 
+    border: none; 
+    cursor: pointer; 
+    white-space: nowrap;
+}
+
+.btn-scroll-toggle { 
+    background: #059669; 
+    color: white; 
+    padding: 12px; 
+    border-radius: 8px; 
+    border: none; 
+    font-weight: bold; 
+    cursor: pointer; 
+    white-space: nowrap;
+}
+
+/* ============================================================
+   4. PAINÉIS (ROLAGEM, TONS E SETLIST)
+   ============================================================ */
+#scroll-panel { 
+    display: none; 
+    background: #222; 
+    padding: 15px; 
+    flex-direction: column; 
+    gap: 15px; 
+    border-bottom: 1px solid #333; 
+}
+
+.scroll-row { display: flex; align-items: center; gap: 15px; width: 100%; }
+
+#scroll-speed { 
+    flex: 1; 
+    height: 15px; 
+    cursor: pointer; 
+    accent-color: #059669;
+}
+
+#tone-grid { 
+    display: none; 
+    grid-template-columns: repeat(6, 1fr); 
+    gap: 5px; 
+    padding: 15px; 
+    background: #262626; 
+    border-bottom: 2px solid #ff9800; 
+}
+
+.btn-tone-pick { 
+    background: #444; 
+    padding: 12px; 
+    font-size: 12px; 
+    border-radius: 5px; 
+    text-align: center; 
+    color: white; 
+    border: none; 
+    cursor: pointer; 
+}
+
+.btn-tone-pick.active { background: #ff9800 !important; color: #000 !important; font-weight: bold; }
+
+#setlist { 
+    background: #181818; 
+    padding: 10px; 
+    display: flex; 
+    gap: 10px; 
+    overflow-x: auto; 
+    white-space: nowrap; 
+    border-bottom: 1px solid #333; 
+    min-height: 50px; 
+    align-items: center;
+}
+
+.song-item { 
+    background: #333; 
+    padding: 8px 15px; 
+    border-radius: 20px; 
+    cursor: pointer; 
+    font-size: 14px; 
+    border: 1px solid #555; 
+}
+
+.song-item.active { background: #e11d48; border-color: #e11d48; }
+
+/* ============================================================
+   5. EXIBIÇÃO DA CIFRA (O CORAÇÃO DO APP)
+   ============================================================ */
+#cifra-wrapper { 
+    flex: 1; 
+    overflow-y: auto; 
+    background: #000 !important; 
+    margin: 0; 
+    padding: 20px; 
+    box-sizing: border-box; 
+    -webkit-overflow-scrolling: touch; 
+    scrollbar-width: none;
+}
+
+#cifra-wrapper::-webkit-scrollbar { display: none; }
+
+#info-tom { 
+    padding: 5px 10px; 
+    font-size: 12px; 
+    color: #888; 
+    border-bottom: 1px solid #222; 
+    margin-bottom: 10px; 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between;
+}
+
+.tom-destaque { color: #ff9800; font-weight: bold; margin-right: 15px; }
+
+/* Configuração crucial para alinhar as notas sobre a letra */
+#cifra-container { 
+    font-family: 'Courier New', Courier, monospace; 
+    white-space: pre; 
+    line-height: 1.5; 
+    font-size: 16px; 
+    color: #eee; 
+    background: #000; 
+    padding-bottom: 500px; /* Espaço para o fim da rolagem */
+}
+
+/* Estilização das Notas (Acordes) capturadas pelo servidor Node */
+#cifra-container b, .chord { 
+    color: #ff9800; 
+    font-weight: bold; 
+    font-style: normal;
+}
+
+/* ============================================================
+   6. UTILITÁRIOS
+   ============================================================ */
+.qr-box { 
+    position: fixed; 
+    top: 70px; 
+    right: 20px; 
+    background: white; 
+    padding: 15px; 
+    border-radius: 10px; 
+    z-index: 1000; 
+    display: none; 
+    text-align: center; 
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8); 
+}
+
+.hidden { display: none !important; }

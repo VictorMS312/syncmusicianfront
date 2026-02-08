@@ -1,0 +1,16 @@
+{
+  "name": "Sync Musician Pro",
+  "short_name": "SyncMusician",
+  "description": "Sincronização de cifras e scroll em tempo real para bandas.",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#1f1f1f",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3844/3844724.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

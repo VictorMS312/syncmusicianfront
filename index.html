@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sync Musician v5.7 - Full Width Scroll</title>
+  <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f1f1f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="setup-screen" style="padding: 50px; text-align: center;">
+    <h1 style="color: #fff;">Sync Musician v5.7</h1>
+    <button onclick="initRole('S')" class="btn-main" style="width: 220px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button><br>
+    <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
+    <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+        <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center;">
+        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px;">📷 ESCANEAR</button>
+    </div>
+    <div id="reader" style="width: 300px; margin: 10px auto; background: #000; display: none;"></div> 
+    <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 220px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
+</div>
+
+<div id="main-app" class="hidden">
+    <div id="qr-modal" class="qr-box">
+        <img id="qr-img" src="" alt="QR Code">
+        <button onclick="toggleQR()" style="background:#000; color:white; width:100%; padding:8px; border-radius:5px; margin-top:10px;">FECHAR</button>
+    </div>
+
+    <div class="header">
+        <div id="status">Conectando...</div>
+        <div id="senior-header-controls" class="hidden id-display">
+            <button class="btn-action" onclick="copyID()">COPIAR ID</button>
+            <button class="btn-action btn-qr" onclick="toggleQR()">QR CODE</button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div id="senior-controls" class="hidden" style="display: flex; gap: 5px; flex: 1;">
+            <input type="text" id="url-input" placeholder="Link Cifra Club">
+            <button id="btn-save" class="btn-main" onclick="addSong()">+ SALVAR</button>
+            <button class="btn-danger" onclick="deleteCurrentSong()">APAGAR</button>
+        </div>
+        <button class="btn-scroll-toggle" onclick="toggleScrollPanel()">SCROLL</button>
+    </div>
+
+    <div id="scroll-panel">
+        <div class="scroll-row">
+            <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background: #059669; min-width: 100px; padding: 12px;">PLAY</button>
+            <span style="font-size: 10px; color: #aaa;">VELOCIDADE:</span>
+            <input type="range" id="scroll-speed" min="1" max="100" value="20">
+        </div>
+    </div>
+
+    <div id="tone-grid"></div>
+    <div id="setlist"></div>
+
+    <div id="cifra-wrapper">
+        <div id="info-tom">
+            <div>
+                TOM: <span id="curr-val" class="tom-destaque">-</span>
+                <small>(Original: <span id="orig-val">-</span>)</small>
+            </div>
+            <button id="btn-toggle-tone" class="btn-action" onclick="toggleToneGrid()" style="background: #ff9800; color: #000; display: none;">ALTERAR TOM</button>
+        </div>
+        <div id="cifra-container">Aguardando líder...</div>
+    </div>
+</div>
+
+<script>
+    let peer, connections = [], role = '';
+    let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
+    let currentSongIndex = -1, originalCifraText = "", currentTransposedText = ""; 
+    let currentTone = "-", baseNote = "C", currentPeerId = "", html5QrCode;
+    
+    let isScrolling = false;
+    let scrollPos = 0; 
+    const wrapper = document.getElementById('cifra-wrapper');
+    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+    function initRole(r) {
+        role = r;
+        peer = new Peer(); 
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+
+        if (role === 'S') {
+            document.getElementById('senior-controls').classList.remove('hidden');
+            document.getElementById('senior-header-controls').classList.remove('hidden');
+            document.getElementById('btn-toggle-tone').style.display = 'block';
+            peer.on('open', id => {
+                currentPeerId = id;
+                document.getElementById('status').innerText = "MODO: LÍDER";
+                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+            });
+            peer.on('connection', c => {
+                connections.push(c);
+                c.on('open', () => { if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); });
+            });
+            wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
+            renderSetlist();
+            renderToneGrid();
+        } else {
+            const id = document.getElementById('join-id').value;
+            peer.on('open', () => {
+                document.getElementById('status').innerText = "MODO: MÚSICO";
+                const c = peer.connect(id);
+                c.on('data', data => {
+                    if (data.type === 'SYNC') { renderCifraComCores(data.body); document.getElementById('curr-val').innerText = data.tone; }
+                    if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
+                });
+            });
+        }
+    }
+
+    function toggleScrollPanel() {
+        const panel = document.getElementById('scroll-panel');
+        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function scrollLoop() {
+        if (!isScrolling) return;
+        
+        // Ajuste: Mesmo no valor 1 do slider, ele terá uma velocidade mínima (0.05)
+        // Isso evita que a rolagem pare totalmente
+        const sliderValue = parseFloat(document.getElementById('scroll-speed').value);
+        const speed = (sliderValue / 100) + 0.05; 
+        
+        scrollPos += speed;
+        wrapper.scrollTop = Math.floor(scrollPos);
+        
+        if (role === 'S') syncScrollPosition();
+        requestAnimationFrame(scrollLoop);
+    }
+
+    function toggleAutoScroll() {
+        const btn = document.getElementById('btn-play-scroll');
+        isScrolling = !isScrolling;
+        
+        if (isScrolling) {
+            scrollPos = wrapper.scrollTop; 
+            btn.innerText = "STOP";
+            btn.style.background = "#b91c1c";
+            scrollLoop();
+        } else {
+            btn.innerText = "PLAY";
+            btn.style.background = "#059669";
+        }
+    }
+
+    function syncScrollPosition() {
+        connections.forEach(c => { if (c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
+    }
+
+    // --- LOGICA DE CIFRAS ---
+    function selectSong(index) {
+        currentSongIndex = index;
+        const song = savedSongs[index];
+        originalCifraText = song.content;
+        currentTransposedText = song.content;
+        currentTone = song.originalTone;
+        baseNote = song.originalTone;
+        document.getElementById('orig-val').innerText = song.originalTone;
+        document.getElementById('curr-val').innerText = song.originalTone;
+        wrapper.scrollTop = 0;
+        scrollPos = 0;
+        renderSetlist();
+        updateAndSync(currentTransposedText, currentTone);
+    }
+
+    function updateAndSync(text, tone) {
+        renderCifraComCores(text);
+        connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body: text, tone: tone }); });
+    }
+
+    function renderCifraComCores(text) {
+        const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
+        document.getElementById('cifra-container').innerHTML = html;
+    }
+
+    function selectDirectTone(targetNote) {
+        if (currentSongIndex === -1) return;
+        const diff = notes.indexOf(targetNote) - notes.indexOf(baseNote);
+        currentTransposedText = transposeText(originalCifraText, diff);
+        currentTone = targetNote;
+        document.getElementById('curr-val').innerText = targetNote;
+        updateAndSync(currentTransposedText, currentTone);
+    }
+
+    function transposeText(text, diff) {
+        return text.replace(/[A-G][#b]?/g, (match) => {
+            let note = match.endsWith('b') ? ({"Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#"}[match] || match) : match;
+            let index = notes.indexOf(note);
+            if (index === -1) return match;
+            let newIndex = (index + diff) % 12;
+            while (newIndex < 0) newIndex += 12;
+            return notes[newIndex];
+        });
+    }
+
+    function toggleToneGrid() {
+        const grid = document.getElementById('tone-grid');
+        grid.style.display = (grid.style.display === 'grid') ? 'none' : 'grid';
+    }
+
+    function renderToneGrid() {
+        const grid = document.getElementById('tone-grid');
+        grid.innerHTML = '';
+        notes.forEach(note => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-tone-pick';
+            btn.innerText = note;
+            btn.onclick = () => { selectDirectTone(note); toggleToneGrid(); };
+            grid.appendChild(btn);
+        });
+    }
+
+    /*async function addSong() {
+        const btn = document.getElementById('btn-save');
+        const url = document.getElementById('url-input').value.trim();
+        if (!url) return;
+        btn.innerText = "..."; btn.disabled = true;
+        try {
+            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            const doc = new DOMParser().parseFromString(data.contents, 'text/html');
+            const title = doc.title.split('|')[0].trim();
+            const originalTone = doc.querySelector('#cifra_tom')?.innerText.trim() || "C";
+            const content = doc.querySelector('pre').innerText;
+            savedSongs.push({ title, content, url, originalTone });
+            localStorage.setItem('setlist', JSON.stringify(savedSongs));
+            renderSetlist();
+            document.getElementById('url-input').value = '';
+        } catch (e) { alert("Erro ao carregar link."); }
+        btn.innerText = "+ SALVAR"; btn.disabled = false;
+    }*/
+
+    async function addSong() {
+    const btn = document.getElementById('btn-save');
+    const urlInput = document.getElementById('url-input');
+    const url = urlInput.value.trim();
+
+    if (!url) return;
+
+    btn.innerText = "CARREGANDO...";
+    btn.disabled = true;
+
+    try {
+
+        
+        // Antes:
+// const res = await fetch(`http://localhost:3000/get-cifra?url=${encodeURIComponent(url)}`);
+
+// Depois (com a URL que o Render te deu):
+const res = await fetch(`https://https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
+        
+        const data = await res.json();
+
+        // data.cifra já vem com o HTML limpo (tags <b> para notas e <pre> para estrutura)
+        const newSong = { 
+            title: data.titulo || "Sem título", 
+            content: data.cifra, // Salvamos o HTML completo da cifra
+            url: url, 
+            originalTone: "C" // Você pode extrair isso no servidor se desejar
+        };
+
+        savedSongs.push(newSong);
+        localStorage.setItem('setlist', JSON.stringify(savedSongs));
+        
+        renderSetlist();
+        urlInput.value = '';
+        alert("Música salva com sucesso!");
+
+    } catch (e) {
+        console.error(e);
+        alert("Erro ao carregar cifra. Verifique se o servidor Node.js está rodando.");
+    } finally {
+        btn.innerText = "+ SALVAR";
+        btn.disabled = false;
+    }
+}
+
+    function renderSetlist() {
+        const container = document.getElementById('setlist');
+        container.innerHTML = '';
+        savedSongs.forEach((song, index) => {
+            const div = document.createElement('div');
+            div.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
+            div.innerText = song.title;
+            div.onclick = () => selectSong(index);
+            container.appendChild(div);
+        });
+    }
+
+    function copyID() { if (currentPeerId) navigator.clipboard.writeText(currentPeerId).then(() => alert("ID Copiado!")); }
+    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
+    function deleteCurrentSong() {
+        if (currentSongIndex === -1) return;
+        savedSongs.splice(currentSongIndex, 1);
+        localStorage.setItem('setlist', JSON.stringify(savedSongs));
+        currentSongIndex = -1; renderSetlist();
+        document.getElementById('cifra-container').innerHTML = "Música removida.";
+    }
+
+    function startScanner() {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+            document.getElementById('join-id').value = decodedText;
+            stopScanner();
+        }).catch(err => alert("Câmera não disponível"));
+    }
+
+    function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
+</script>
+</body>
+</html>
