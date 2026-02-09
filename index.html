@@ -131,7 +131,20 @@
 
     function initRole(r) {
         role = r;
-        peer = new Peer(); 
+        
+        // --- NOVIDADE: ID FIXO PARA O LÍDER ---
+        if (role === 'S') {
+            // Tenta recuperar um ID salvo, se não existir, cria um aleatório curto
+            let savedId = localStorage.getItem('my_fixed_leader_id');
+            if (!savedId) {
+                savedId = 'banda-' + Math.random().toString(36).substr(2, 5);
+                localStorage.setItem('my_fixed_leader_id', savedId);
+            }
+            peer = new Peer(savedId); // O Líder agora pede sempre o mesmo ID
+        } else {
+            peer = new Peer(); // O músico continua com ID aleatório
+        }
+
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
         document.getElementById('btn-home').style.display = 'block';
