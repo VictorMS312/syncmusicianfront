@@ -258,8 +258,7 @@
 // const res = await fetch(`http://localhost:3000/get-cifra?url=${encodeURIComponent(url)}`);
 
 // Depois (com a URL que o Render te deu):
-const res = await fetch(`https://https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
-        
+const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
         const data = await res.json();
 
         // data.cifra já vem com o HTML limpo (tags <b> para notas e <pre> para estrutura)
