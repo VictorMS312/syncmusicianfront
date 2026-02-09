@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Musician v5.7 - Full Width Scroll</title>
-  <link rel="manifest" href="manifest.json">
+    <title>Sync Musician v6.0</title>
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f1f1f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,16 +15,26 @@
 </head>
 <body>
 
-<div id="setup-screen" style="padding: 50px; text-align: center;">
-    <h1 style="color: #fff;">Sync Musician v5.7</h1>
-    <button onclick="initRole('S')" class="btn-main" style="width: 220px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button><br>
-    <div style="margin: 20px 0; border-top: 1px solid #333;"></div>
-    <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+<div id="setup-screen" style="padding: 30px; text-align: center;">
+    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician v6.0</h1>
+    <p id="last-session-info" style="font-size: 12px; color: #888; margin-bottom: 20px;"></p>
+
+    <div id="category-menu" style="margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        </div>
+
+    <button onclick="initRole('S')" class="btn-main" style="width: 240px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button>
+    
+    <div style="margin: 20px 0; border-top: 1px solid #333; position: relative;">
+        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1f1f1f; padding: 0 10px; color: #555;">OU</span>
+    </div>
+
+    <div style="display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 20px;">
         <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center;">
-        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px;">📷 ESCANEAR</button>
+        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px;">📷</button>
     </div>
     <div id="reader" style="width: 300px; margin: 10px auto; background: #000; display: none;"></div> 
-    <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 220px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
+    
+    <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 240px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
 </div>
 
 <div id="main-app" class="hidden">
@@ -73,6 +83,8 @@
     </div>
 </div>
 
+<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; cursor: pointer; display: none;">🏠</button>
+
 <script>
     let peer, connections = [], role = '';
     let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
@@ -81,60 +93,112 @@
     
     let isScrolling = false;
     let scrollPos = 0; 
+    let wakeLock = null; 
     const wrapper = document.getElementById('cifra-wrapper');
     const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+    // 1. PERSISTÊNCIA AO CARREGAR
+    window.onload = () => {
+        renderSetlist();
+        const lastLeaderId = localStorage.getItem('last_leader_id');
+        if (lastLeaderId) {
+            document.getElementById('join-id').value = lastLeaderId;
+            document.getElementById('last-session-info').innerText = "Último ID conectado: " + lastLeaderId;
+        }
+        
+        const lastSong = localStorage.getItem('last_viewed_song');
+        if (lastSong) {
+            renderCifraComCores(lastSong);
+            document.getElementById('status').innerText = "MODO OFFLINE (Cache)";
+        }
+    };
+
+    // 2. FUNÇÃO HOME
+    function goHome() {
+        isScrolling = false;
+        if (peer) peer.destroy(); 
+        document.getElementById('main-app').classList.add('hidden');
+        document.getElementById('setup-screen').classList.remove('hidden');
+        document.getElementById('btn-home').style.display = 'none';
+        document.getElementById('status').innerText = "Conectando...";
+    }
+
+    async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        }
+    }
 
     function initRole(r) {
         role = r;
         peer = new Peer(); 
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('btn-home').style.display = 'block';
+
+        requestWakeLock();
 
         if (role === 'S') {
-            document.getElementById('senior-controls').classList.remove('hidden');
-            document.getElementById('senior-header-controls').classList.remove('hidden');
-            document.getElementById('btn-toggle-tone').style.display = 'block';
-            peer.on('open', id => {
-                currentPeerId = id;
-                document.getElementById('status').innerText = "MODO: LÍDER";
-                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
-            });
-            peer.on('connection', c => {
-                connections.push(c);
-                c.on('open', () => { if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); });
-            });
-            wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
-            renderSetlist();
-            renderToneGrid();
+            setupLeader();
         } else {
-            const id = document.getElementById('join-id').value;
-            peer.on('open', () => {
-                document.getElementById('status').innerText = "MODO: MÚSICO";
-                const c = peer.connect(id);
-                c.on('data', data => {
-                    if (data.type === 'SYNC') { renderCifraComCores(data.body); document.getElementById('curr-val').innerText = data.tone; }
-                    if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
-                });
-            });
+            const id = document.getElementById('join-id').value.trim();
+            if (!id) { alert("Insira o ID do Líder"); return goHome(); }
+            localStorage.setItem('last_leader_id', id);
+            setupMusician(id);
         }
     }
 
-    function toggleScrollPanel() {
-        const panel = document.getElementById('scroll-panel');
-        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+    function setupLeader() {
+        document.getElementById('senior-controls').classList.remove('hidden');
+        document.getElementById('senior-header-controls').classList.remove('hidden');
+        document.getElementById('btn-toggle-tone').style.display = 'block';
+        peer.on('open', id => {
+            currentPeerId = id;
+            document.getElementById('status').innerText = "MODO: LÍDER";
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+        });
+        peer.on('connection', c => {
+            connections.push(c);
+            c.on('open', () => { 
+                if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); 
+            });
+        });
+        wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
+        renderToneGrid();
     }
 
+    function setupMusician(id) {
+        peer.on('open', () => {
+            document.getElementById('status').innerText = "CONECTANDO AO LÍDER...";
+            const c = peer.connect(id);
+            handleMusicianConnection(c, id);
+        });
+    }
+
+    function handleMusicianConnection(c, id) {
+        c.on('open', () => {
+            document.getElementById('status').innerText = "MODO: MÚSICO (Conectado)";
+        });
+        c.on('data', data => {
+            if (data.type === 'SYNC') { 
+                renderCifraComCores(data.body); 
+                document.getElementById('curr-val').innerText = data.tone;
+                localStorage.setItem('last_viewed_song', data.body);
+            }
+            if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
+        });
+        c.on('close', () => {
+            document.getElementById('status').innerText = "CONEXÃO PERDIDA. RECONECTANDO...";
+            setTimeout(() => { if(role === 'M') setupMusician(id); }, 3000);
+        });
+    }
+
+    // --- ROLAGEM, CIFRAS E OUTRAS FUNÇÕES (MANTIDAS) ---
     function scrollLoop() {
         if (!isScrolling) return;
-        
-        // Ajuste: Mesmo no valor 1 do slider, ele terá uma velocidade mínima (0.05)
-        // Isso evita que a rolagem pare totalmente
-        const sliderValue = parseFloat(document.getElementById('scroll-speed').value);
-        const speed = (sliderValue / 100) + 0.05; 
-        
+        const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50); 
         scrollPos += speed;
         wrapper.scrollTop = Math.floor(scrollPos);
-        
         if (role === 'S') syncScrollPosition();
         requestAnimationFrame(scrollLoop);
     }
@@ -142,15 +206,12 @@
     function toggleAutoScroll() {
         const btn = document.getElementById('btn-play-scroll');
         isScrolling = !isScrolling;
-        
         if (isScrolling) {
             scrollPos = wrapper.scrollTop; 
-            btn.innerText = "STOP";
-            btn.style.background = "#b91c1c";
+            btn.innerText = "STOP"; btn.style.background = "#b91c1c";
             scrollLoop();
         } else {
-            btn.innerText = "PLAY";
-            btn.style.background = "#059669";
+            btn.innerText = "PLAY"; btn.style.background = "#059669";
         }
     }
 
@@ -158,7 +219,40 @@
         connections.forEach(c => { if (c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
     }
 
-    // --- LOGICA DE CIFRAS ---
+    function renderCifraComCores(text) {
+        const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
+        document.getElementById('cifra-container').innerHTML = html;
+    }
+
+    async function addSong() {
+        const btn = document.getElementById('btn-save');
+        const urlInput = document.getElementById('url-input');
+        const url = urlInput.value.trim();
+        if (!url) return;
+        btn.innerText = "CARREGANDO..."; btn.disabled = true;
+        try {
+            const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            savedSongs.push({ title: data.titulo || "Sem título", content: data.cifra, url: url, originalTone: "C" });
+            localStorage.setItem('setlist', JSON.stringify(savedSongs));
+            renderSetlist();
+            urlInput.value = '';
+        } catch (e) { alert("Erro ao carregar."); }
+        finally { btn.innerText = "+ SALVAR"; btn.disabled = false; }
+    }
+
+    function renderSetlist() {
+        const container = document.getElementById('setlist');
+        container.innerHTML = '';
+        savedSongs.forEach((song, index) => {
+            const div = document.createElement('div');
+            div.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
+            div.innerText = song.title;
+            div.onclick = () => selectSong(index);
+            container.appendChild(div);
+        });
+    }
+
     function selectSong(index) {
         currentSongIndex = index;
         const song = savedSongs[index];
@@ -168,8 +262,7 @@
         baseNote = song.originalTone;
         document.getElementById('orig-val').innerText = song.originalTone;
         document.getElementById('curr-val').innerText = song.originalTone;
-        wrapper.scrollTop = 0;
-        scrollPos = 0;
+        wrapper.scrollTop = 0; scrollPos = 0;
         renderSetlist();
         updateAndSync(currentTransposedText, currentTone);
     }
@@ -179,9 +272,15 @@
         connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body: text, tone: tone }); });
     }
 
-    function renderCifraComCores(text) {
-        const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
-        document.getElementById('cifra-container').innerHTML = html;
+    function renderToneGrid() {
+        const grid = document.getElementById('tone-grid');
+        grid.innerHTML = '';
+        notes.forEach(note => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-tone-pick'; btn.innerText = note;
+            btn.onclick = () => { selectDirectTone(note); toggleToneGrid(); };
+            grid.appendChild(btn);
+        });
     }
 
     function selectDirectTone(targetNote) {
@@ -209,92 +308,9 @@
         grid.style.display = (grid.style.display === 'grid') ? 'none' : 'grid';
     }
 
-    function renderToneGrid() {
-        const grid = document.getElementById('tone-grid');
-        grid.innerHTML = '';
-        notes.forEach(note => {
-            const btn = document.createElement('button');
-            btn.className = 'btn-tone-pick';
-            btn.innerText = note;
-            btn.onclick = () => { selectDirectTone(note); toggleToneGrid(); };
-            grid.appendChild(btn);
-        });
-    }
-
-    /*async function addSong() {
-        const btn = document.getElementById('btn-save');
-        const url = document.getElementById('url-input').value.trim();
-        if (!url) return;
-        btn.innerText = "..."; btn.disabled = true;
-        try {
-            const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            const doc = new DOMParser().parseFromString(data.contents, 'text/html');
-            const title = doc.title.split('|')[0].trim();
-            const originalTone = doc.querySelector('#cifra_tom')?.innerText.trim() || "C";
-            const content = doc.querySelector('pre').innerText;
-            savedSongs.push({ title, content, url, originalTone });
-            localStorage.setItem('setlist', JSON.stringify(savedSongs));
-            renderSetlist();
-            document.getElementById('url-input').value = '';
-        } catch (e) { alert("Erro ao carregar link."); }
-        btn.innerText = "+ SALVAR"; btn.disabled = false;
-    }*/
-
-    async function addSong() {
-    const btn = document.getElementById('btn-save');
-    const urlInput = document.getElementById('url-input');
-    const url = urlInput.value.trim();
-
-    if (!url) return;
-
-    btn.innerText = "CARREGANDO...";
-    btn.disabled = true;
-
-    try {
-
-        
-        // Antes:
-// const res = await fetch(`http://localhost:3000/get-cifra?url=${encodeURIComponent(url)}`);
-
-// Depois (com a URL que o Render te deu):
-const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
-        const data = await res.json();
-
-        // data.cifra já vem com o HTML limpo (tags <b> para notas e <pre> para estrutura)
-        const newSong = { 
-            title: data.titulo || "Sem título", 
-            content: data.cifra, // Salvamos o HTML completo da cifra
-            url: url, 
-            originalTone: "C" // Você pode extrair isso no servidor se desejar
-        };
-
-        savedSongs.push(newSong);
-        localStorage.setItem('setlist', JSON.stringify(savedSongs));
-        
-        renderSetlist();
-        urlInput.value = '';
-        alert("Música salva com sucesso!");
-
-    } catch (e) {
-        console.error(e);
-        alert("Erro ao carregar cifra. Verifique se o servidor Node.js está rodando.");
-    } finally {
-        btn.innerText = "+ SALVAR";
-        btn.disabled = false;
-    }
-}
-
-    function renderSetlist() {
-        const container = document.getElementById('setlist');
-        container.innerHTML = '';
-        savedSongs.forEach((song, index) => {
-            const div = document.createElement('div');
-            div.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
-            div.innerText = song.title;
-            div.onclick = () => selectSong(index);
-            container.appendChild(div);
-        });
+    function toggleScrollPanel() {
+        const panel = document.getElementById('scroll-panel');
+        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
     }
 
     function copyID() { if (currentPeerId) navigator.clipboard.writeText(currentPeerId).then(() => alert("ID Copiado!")); }
