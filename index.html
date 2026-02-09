@@ -15,76 +15,64 @@
 </head>
 <body>
 
-<div id="setup-screen" style="padding: 30px; text-align: center;">
-    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician v6.0</h1>
-    <p id="last-session-info" style="font-size: 12px; color: #888; margin-bottom: 20px;"></p>
+<body>
 
-    <div id="category-menu" style="margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-        </div>
+<header class="header">
+    <h2 id="page-title">Minha Biblioteca</h2>
+    <div id="status-dot" class="status-badge"></div>
+    <button class="menu-btn" onclick="toggleMenu()">☰</button>
+</header>
 
-    <button onclick="initRole('S')" class="btn-main" style="width: 240px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button>
+<aside id="sidebar" class="sidebar">
+    <h3>Conexão</h3>
+    <hr>
     
-    <div style="margin: 20px 0; border-top: 1px solid #333; position: relative;">
-        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1f1f1f; padding: 0 10px; color: #555;">OU</span>
+    <div id="menu-start">
+        <button class="btn" onclick="initRole('S')">MODO LÍDER</button>
+        <button class="btn btn-ghost" onclick="showMenuSection('menu-join')">MODO MÚSICO</button>
     </div>
 
-    <div style="display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 20px;">
-        <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center;">
-        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px;">📷</button>
+    <div id="menu-leader" class="hidden">
+        <div class="qr-panel">
+            <small>ID DA SESSÃO</small><br>
+            <strong id="display-id">---</strong><br>
+            <img id="qr-img" src="" alt="QR Code">
+        </div>
+        <button class="btn btn-danger" onclick="resetConnection()">ENCERRAR LIDERANÇA</button>
     </div>
-    <div id="reader" style="width: 300px; margin: 10px auto; background: #000; display: none;"></div> 
+
+    <div id="menu-join" class="hidden">
+        <input type="text" id="join-id" placeholder="ID do Líder">
+        <div style="display:flex; gap:5px;">
+            <button class="btn" onclick="initRole('M')" style="flex:2">CONECTAR</button>
+            <button class="btn btn-ghost" onclick="startScanner()" style="flex:1">📷</button>
+        </div>
+        <div id="reader" class="hidden"></div>
+        <button class="btn btn-ghost" onclick="showMenuSection('menu-start')">VOLTAR</button>
+    </div>
+
+    <div id="menu-musician-connected" class="hidden">
+        <div style="text-align:center; padding:20px; background:#05966922; border-radius:10px; color: #059669; font-weight: bold;">
+            ✓ CONECTADO
+        </div>
+        <button class="btn btn-danger" onclick="resetConnection()">DESCONECTAR</button>
+    </div>
+</aside>
+
+<div id="overlay" class="overlay" onclick="toggleMenu()"></div>
+
+<main class="container" id="content-area">
+    </main>
+
+<section id="main-app" class="hidden">
+    <div class="header-performance">
+        <button class="btn-ghost" onclick="closeApp()">⬅ VOLTAR</button>
+        <span id="status-perf">MODO LÍDER</span>
+    </div>
     
-    <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 240px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
-</div>
-
-<div id="main-app" class="hidden">
-    <div id="qr-modal" class="qr-box">
-        <img id="qr-img" src="" alt="QR Code">
-        <button onclick="toggleQR()" style="background:#000; color:white; width:100%; padding:8px; border-radius:5px; margin-top:10px;">FECHAR</button>
-    </div>
-
-    <div class="header">
-        <div id="status">Conectando...</div>
-        <div id="senior-header-controls" class="hidden id-display">
-            <button class="btn-action" onclick="copyID()">COPIAR ID</button>
-            <button class="btn-action btn-qr" onclick="toggleQR()">QR CODE</button>
+    <div id="cifra-content">
         </div>
-    </div>
-
-    <div class="controls">
-        <div id="senior-controls" class="hidden" style="display: flex; gap: 5px; flex: 1;">
-            <input type="text" id="url-input" placeholder="Link Cifra Club">
-            <button id="btn-save" class="btn-main" onclick="addSong()">+ SALVAR</button>
-            <button class="btn-danger" onclick="deleteCurrentSong()">APAGAR</button>
-        </div>
-        <button class="btn-scroll-toggle" onclick="toggleScrollPanel()">SCROLL</button>
-    </div>
-
-    <div id="scroll-panel">
-        <div class="scroll-row">
-            <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background: #059669; min-width: 100px; padding: 12px;">PLAY</button>
-            <span style="font-size: 10px; color: #aaa;">VELOCIDADE:</span>
-            <input type="range" id="scroll-speed" min="1" max="100" value="20">
-        </div>
-    </div>
-
-    <div id="tone-grid"></div>
-    <div id="setlist"></div>
-
-    <div id="cifra-wrapper">
-        <div id="info-tom">
-            <div>
-                TOM: <span id="curr-val" class="tom-destaque">-</span>
-                <small>(Original: <span id="orig-val">-</span>)</small>
-            </div>
-            <button id="btn-toggle-tone" class="btn-action" onclick="toggleToneGrid()" style="background: #ff9800; color: #000; display: none;">ALTERAR TOM</button>
-        </div>
-        <div id="cifra-container">Aguardando líder...</div>
-    </div>
-</div>
-
-<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; cursor: pointer; display: none;">🏠</button>
-
+</section>
 <script>
     let peer, connections = [], role = '';
     let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
