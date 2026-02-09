@@ -70,7 +70,53 @@ input#url-input {
     border: none; 
     font-weight: bold; 
 }
+:root {
+    --primary: #059669;
+    --bg: #121212;
+    --card: #1e1e1e;
+    --text: #e5e7eb;
+    --danger: #991b1b;
+    --sidebar-w: 280px;
+}
 
+body { background: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; }
+
+/* Sidebar à Direita */
+.sidebar {
+    position: fixed;
+    right: calc(-1 * var(--sidebar-w));
+    top: 0;
+    width: var(--sidebar-w);
+    height: 100%;
+    background: #181818;
+    z-index: 100;
+    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 20px;
+    box-sizing: border-box;
+    border-left: 1px solid #333;
+}
+.sidebar.open { right: 0; }
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    z-index: 90;
+}
+.overlay.active { display: block; }
+
+/* Componentes */
+.header { display: flex; align-items: center; padding: 15px; background: var(--card); }
+.status-badge { width: 10px; height: 10px; border-radius: 50%; background: #555; }
+.btn { width: 100%; padding: 12px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; margin-top: 10px; }
+.btn-danger { background: var(--danger); color: white; }
+.btn-ghost { background: #333; color: white; }
+.hidden { display: none !important; }
+
+/* QR Panel */
+.qr-panel { text-align: center; background: #000; padding: 15px; border-radius: 10px; }
+#qr-img { background: white; padding: 5px; border-radius: 5px; width: 150px; margin-top: 10px; }
 .btn-qr { background: #fff !important; color: #000 !important; }
 
 .btn-main { 

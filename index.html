@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Musician v6.0</title>
+    <title>Sync Musician v8.5 - Production</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f1f1f">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,17 +15,19 @@
 </head>
 <body>
 
-<body>
-
 <header class="header">
+    <button id="btn-home-header" class="btn-icon-header" onclick="goHome()">🏠</button>
     <h2 id="page-title">Minha Biblioteca</h2>
     <div id="status-dot" class="status-badge"></div>
     <button class="menu-btn" onclick="toggleMenu()">☰</button>
 </header>
 
 <aside id="sidebar" class="sidebar">
-    <h3>Conexão</h3>
-    <hr>
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin:0">Conexão</h3>
+        <button onclick="toggleMenu()" style="background:none; border:none; color:#888; font-size: 24px;">✕</button>
+    </div>
+    <hr style="border:0; border-top:1px solid #333; margin: 15px 0;">
     
     <div id="menu-start">
         <button class="btn" onclick="initRole('S')">MODO LÍDER</button>
@@ -34,7 +36,7 @@
 
     <div id="menu-leader" class="hidden">
         <div class="qr-panel">
-            <small>ID DA SESSÃO</small><br>
+            <small style="color:#059669">ID DA SESSÃO</small><br>
             <strong id="display-id">---</strong><br>
             <img id="qr-img" src="" alt="QR Code">
         </div>
@@ -43,16 +45,16 @@
 
     <div id="menu-join" class="hidden">
         <input type="text" id="join-id" placeholder="ID do Líder">
-        <div style="display:flex; gap:5px;">
-            <button class="btn" onclick="initRole('M')" style="flex:2">CONECTAR</button>
-            <button class="btn btn-ghost" onclick="startScanner()" style="flex:1">📷</button>
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <button class="btn" onclick="initRole('M')" style="margin:0; flex:2">CONECTAR</button>
+            <button class="btn btn-ghost" onclick="startScanner()" style="margin:0; flex:1">📷</button>
         </div>
-        <div id="reader" class="hidden"></div>
-        <button class="btn btn-ghost" onclick="showMenuSection('menu-start')">VOLTAR</button>
+        <div id="reader" class="hidden" style="margin-top:10px;"></div>
+        <button class="btn btn-ghost" onclick="showMenuSection('menu-start')" style="margin-top:15px;">VOLTAR</button>
     </div>
 
     <div id="menu-musician-connected" class="hidden">
-        <div style="text-align:center; padding:20px; background:#05966922; border-radius:10px; color: #059669; font-weight: bold;">
+        <div style="text-align:center; padding:15px; background:#05966922; border-radius:10px; color: #059669; font-weight: bold;">
             ✓ CONECTADO
         </div>
         <button class="btn btn-danger" onclick="resetConnection()">DESCONECTAR</button>
@@ -62,17 +64,40 @@
 <div id="overlay" class="overlay" onclick="toggleMenu()"></div>
 
 <main class="container" id="content-area">
-    </main>
+    <div id="setlist-container">
+        <div class="add-bar" id="senior-controls" style="display:none; gap:5px; margin-bottom:20px;">
+            <input type="text" id="url-input" placeholder="Link Cifra Club">
+            <button id="btn-save" class="btn" style="margin:0; width:auto;" onclick="addSong()">SALVAR</button>
+        </div>
+        <div id="setlist"></div>
+    </div>
+</main>
 
 <section id="main-app" class="hidden">
-    <div class="header-performance">
-        <button class="btn-ghost" onclick="closeApp()">⬅ VOLTAR</button>
-        <span id="status-perf">MODO LÍDER</span>
-    </div>
-    
-    <div id="cifra-content">
+    <div class="performance-tools">
+        <div id="info-tom">
+            TOM: <span id="curr-val" class="tom-destaque">-</span>
+            <small>(Original: <span id="orig-val">-</span>)</small>
         </div>
+        <div style="display:flex; gap:5px;">
+            <button class="btn-action" onclick="toggleToneGrid()" style="background:#ff9800; color:#000;">TOM</button>
+            <button class="btn-action" onclick="toggleScrollPanel()">SCROLL</button>
+            <button class="btn-action btn-danger" onclick="deleteCurrentSong()">APAGAR</button>
+        </div>
+    </div>
+
+    <div id="scroll-panel" class="hidden">
+        <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background:#059669;">PLAY</button>
+        <input type="range" id="scroll-speed" min="1" max="100" value="20">
+    </div>
+
+    <div id="tone-grid" class="hidden"></div>
+
+    <div id="cifra-wrapper">
+        <div id="cifra-container">Selecione uma música...</div>
+    </div>
 </section>
+
 <script>
     let peer, connections = [], role = '';
     let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
@@ -82,173 +107,132 @@
     let isScrolling = false;
     let scrollPos = 0; 
     let wakeLock = null; 
+    
     const wrapper = document.getElementById('cifra-wrapper');
     const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-    // 1. PERSISTÊNCIA AO CARREGAR
     window.onload = () => {
         renderSetlist();
         const lastLeaderId = localStorage.getItem('last_leader_id');
-        if (lastLeaderId) {
-            document.getElementById('join-id').value = lastLeaderId;
-            document.getElementById('last-session-info').innerText = "Último ID conectado: " + lastLeaderId;
-        }
-        
-        const lastSong = localStorage.getItem('last_viewed_song');
-        if (lastSong) {
-            renderCifraComCores(lastSong);
-            document.getElementById('status').innerText = "MODO OFFLINE (Cache)";
-        }
+        if (lastLeaderId) document.getElementById('join-id').value = lastLeaderId;
     };
 
-    // 2. FUNÇÃO HOME
+    // --- NAVEGAÇÃO E MENU ---
+    function toggleMenu() {
+        document.getElementById('sidebar').classList.toggle('open');
+        document.getElementById('overlay').classList.toggle('active');
+        if (html5QrCode) stopScanner();
+    }
+
+    function showMenuSection(sectionId) {
+        ['menu-start', 'menu-leader', 'menu-join', 'menu-musician-connected'].forEach(id => {
+            document.getElementById(id).classList.add('hidden');
+        });
+        document.getElementById(sectionId).classList.remove('hidden');
+    }
+
     function goHome() {
         isScrolling = false;
-        if (peer) peer.destroy(); 
         document.getElementById('main-app').classList.add('hidden');
-        document.getElementById('setup-screen').classList.remove('hidden');
-        document.getElementById('btn-home').style.display = 'none';
-        document.getElementById('status').innerText = "Conectando...";
+        document.getElementById('content-area').classList.remove('hidden');
+        document.getElementById('page-title').innerText = "Minha Biblioteca";
     }
 
-    async function requestWakeLock() {
-        if ('wakeLock' in navigator) {
-            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
-        }
-    }
+    function closeApp() { goHome(); }
 
+    // --- CONEXÃO ---
     function initRole(r) {
+        if (peer) peer.destroy();
         role = r;
         
-        // --- NOVIDADE: ID FIXO PARA O LÍDER ---
         if (role === 'S') {
-            // Tenta recuperar um ID salvo, se não existir, cria um aleatório curto
-            let savedId = localStorage.getItem('my_fixed_leader_id');
-            if (!savedId) {
-                savedId = 'banda-' + Math.random().toString(36).substr(2, 5);
-                localStorage.setItem('my_fixed_leader_id', savedId);
-            }
-            peer = new Peer(savedId); // O Líder agora pede sempre o mesmo ID
+            let savedId = localStorage.getItem('my_fixed_leader_id') || 'banda-' + Math.random().toString(36).substr(2, 5);
+            localStorage.setItem('my_fixed_leader_id', savedId);
+            peer = new Peer(savedId);
         } else {
-            peer = new Peer(); // O músico continua com ID aleatório
+            peer = new Peer();
         }
 
-        document.getElementById('setup-screen').classList.add('hidden');
-        document.getElementById('main-app').classList.remove('hidden');
-        document.getElementById('btn-home').style.display = 'block';
-
-        requestWakeLock();
-
-        if (role === 'S') {
-            setupLeader();
-        } else {
-            const id = document.getElementById('join-id').value.trim();
-            if (!id) { alert("Insira o ID do Líder"); return goHome(); }
-            localStorage.setItem('last_leader_id', id);
-            setupMusician(id);
-        }
-    }
-
-    function setupLeader() {
-        document.getElementById('senior-controls').classList.remove('hidden');
-        document.getElementById('senior-header-controls').classList.remove('hidden');
-        document.getElementById('btn-toggle-tone').style.display = 'block';
         peer.on('open', id => {
-            currentPeerId = id;
-            document.getElementById('status').innerText = "MODO: LÍDER";
-            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+            document.getElementById('status-dot').style.background = "#10b981";
+            if (role === 'S') {
+                currentPeerId = id;
+                document.getElementById('display-id').innerText = id;
+                document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+                showMenuSection('menu-leader');
+                document.getElementById('senior-controls').style.display = 'flex';
+                renderToneGrid();
+            } else {
+                const idToJoin = document.getElementById('join-id').value.trim();
+                if(idToJoin) setupMusician(idToJoin);
+            }
         });
+
         peer.on('connection', c => {
             connections.push(c);
             c.on('open', () => { 
                 if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); 
             });
         });
-        wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
-        renderToneGrid();
     }
 
     function setupMusician(id) {
-        peer.on('open', () => {
-            document.getElementById('status').innerText = "CONECTANDO AO LÍDER...";
-            const c = peer.connect(id);
-            handleMusicianConnection(c, id);
-        });
-    }
-
-    function handleMusicianConnection(c, id) {
+        localStorage.setItem('last_leader_id', id);
+        const c = peer.connect(id);
         c.on('open', () => {
-            document.getElementById('status').innerText = "MODO: MÚSICO (Conectado)";
+            document.getElementById('status-dot').style.background = "#10b981";
+            showMenuSection('menu-musician-connected');
+            toggleMenu();
         });
         c.on('data', data => {
             if (data.type === 'SYNC') { 
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('content-area').classList.add('hidden');
                 renderCifraComCores(data.body); 
                 document.getElementById('curr-val').innerText = data.tone;
-                localStorage.setItem('last_viewed_song', data.body);
             }
             if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
         });
-        c.on('close', () => {
-            document.getElementById('status').innerText = "CONEXÃO PERDIDA. RECONECTANDO...";
-            setTimeout(() => { if(role === 'M') setupMusician(id); }, 3000);
-        });
     }
 
-    // --- ROLAGEM, CIFRAS E OUTRAS FUNÇÕES (MANTIDAS) ---
-    function scrollLoop() {
-        if (!isScrolling) return;
-        const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50); 
-        scrollPos += speed;
-        wrapper.scrollTop = Math.floor(scrollPos);
-        if (role === 'S') syncScrollPosition();
-        requestAnimationFrame(scrollLoop);
+    function resetConnection() {
+        if (peer) peer.destroy();
+        peer = null;
+        connections = [];
+        document.getElementById('status-dot').style.background = "#555";
+        document.getElementById('senior-controls').style.display = 'none';
+        showMenuSection('menu-start');
     }
 
-    function toggleAutoScroll() {
-        const btn = document.getElementById('btn-play-scroll');
-        isScrolling = !isScrolling;
-        if (isScrolling) {
-            scrollPos = wrapper.scrollTop; 
-            btn.innerText = "STOP"; btn.style.background = "#b91c1c";
-            scrollLoop();
-        } else {
-            btn.innerText = "PLAY"; btn.style.background = "#059669";
+    // --- SCANNER ---
+    function startScanner() {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.classList.remove('hidden');
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+            document.getElementById('join-id').value = decodedText;
+            stopScanner();
+            initRole('M');
+        }).catch(err => alert("Câmera indisponível"));
+    }
+
+    function stopScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').classList.add('hidden');
+                html5QrCode = null;
+            });
         }
     }
 
-    function syncScrollPosition() {
-        connections.forEach(c => { if (c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
-    }
-
-    function renderCifraComCores(text) {
-        const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
-        document.getElementById('cifra-container').innerHTML = html;
-    }
-
-    async function addSong() {
-        const btn = document.getElementById('btn-save');
-        const urlInput = document.getElementById('url-input');
-        const url = urlInput.value.trim();
-        if (!url) return;
-        btn.innerText = "CARREGANDO..."; btn.disabled = true;
-        try {
-            const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            savedSongs.push({ title: data.titulo || "Sem título", content: data.cifra, url: url, originalTone: "C" });
-            localStorage.setItem('setlist', JSON.stringify(savedSongs));
-            renderSetlist();
-            urlInput.value = '';
-        } catch (e) { alert("Erro ao carregar."); }
-        finally { btn.innerText = "+ SALVAR"; btn.disabled = false; }
-    }
-
+    // --- CIFRAS E SETLIST ---
     function renderSetlist() {
         const container = document.getElementById('setlist');
         container.innerHTML = '';
         savedSongs.forEach((song, index) => {
             const div = document.createElement('div');
             div.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
-            div.innerText = song.title;
+            div.innerHTML = `<strong>${song.title}</strong><br><small>${song.originalTone}</small>`;
             div.onclick = () => selectSong(index);
             container.appendChild(div);
         });
@@ -261,8 +245,13 @@
         currentTransposedText = song.content;
         currentTone = song.originalTone;
         baseNote = song.originalTone;
+        
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('content-area').classList.add('hidden');
+        document.getElementById('page-title').innerText = song.title;
         document.getElementById('orig-val').innerText = song.originalTone;
         document.getElementById('curr-val').innerText = song.originalTone;
+        
         wrapper.scrollTop = 0; scrollPos = 0;
         renderSetlist();
         updateAndSync(currentTransposedText, currentTone);
@@ -270,9 +259,28 @@
 
     function updateAndSync(text, tone) {
         renderCifraComCores(text);
-        connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body: text, tone: tone }); });
+        if(role === 'S') connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body: text, tone: tone }); });
     }
 
+    function renderCifraComCores(text) {
+        const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
+        document.getElementById('cifra-container').innerHTML = html;
+    }
+
+    async function addSong() {
+        const url = document.getElementById('url-input').value.trim();
+        if (!url) return;
+        try {
+            const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            savedSongs.push({ title: data.titulo || "Sem título", content: data.cifra, url: url, originalTone: data.tom || "C" });
+            localStorage.setItem('setlist', JSON.stringify(savedSongs));
+            renderSetlist();
+            document.getElementById('url-input').value = '';
+        } catch (e) { alert("Erro ao carregar cifra."); }
+    }
+
+    // --- TRANSPOSTOR E TOOLS ---
     function renderToneGrid() {
         const grid = document.getElementById('tone-grid');
         grid.innerHTML = '';
@@ -304,37 +312,38 @@
         });
     }
 
-    function toggleToneGrid() {
-        const grid = document.getElementById('tone-grid');
-        grid.style.display = (grid.style.display === 'grid') ? 'none' : 'grid';
-    }
-
-    function toggleScrollPanel() {
-        const panel = document.getElementById('scroll-panel');
-        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
-    }
-
-    function copyID() { if (currentPeerId) navigator.clipboard.writeText(currentPeerId).then(() => alert("ID Copiado!")); }
-    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
+    function toggleToneGrid() { document.getElementById('tone-grid').classList.toggle('hidden'); }
+    function toggleScrollPanel() { document.getElementById('scroll-panel').classList.toggle('hidden'); }
+    
     function deleteCurrentSong() {
-        if (currentSongIndex === -1) return;
+        if (!confirm("Apagar música?")) return;
         savedSongs.splice(currentSongIndex, 1);
         localStorage.setItem('setlist', JSON.stringify(savedSongs));
-        currentSongIndex = -1; renderSetlist();
-        document.getElementById('cifra-container').innerHTML = "Música removida.";
+        currentSongIndex = -1;
+        renderSetlist();
+        goHome();
     }
 
-    function startScanner() {
-        const readerDiv = document.getElementById('reader');
-        readerDiv.style.display = 'block';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
-            document.getElementById('join-id').value = decodedText;
-            stopScanner();
-        }).catch(err => alert("Câmera não disponível"));
+    function toggleAutoScroll() {
+        isScrolling = !isScrolling;
+        const btn = document.getElementById('btn-play-scroll');
+        if (isScrolling) {
+            scrollPos = wrapper.scrollTop;
+            btn.innerText = "STOP"; btn.style.background = "#b91c1c";
+            scrollLoop();
+        } else {
+            btn.innerText = "PLAY"; btn.style.background = "#059669";
+        }
     }
 
-    function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
+    function scrollLoop() {
+        if (!isScrolling) return;
+        const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50); 
+        scrollPos += speed;
+        wrapper.scrollTop = Math.floor(scrollPos);
+        if (role === 'S') connections.forEach(c => { if (c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
+        requestAnimationFrame(scrollLoop);
+    }
 </script>
 </body>
 </html>
