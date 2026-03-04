@@ -86,6 +86,12 @@
 <button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; cursor: pointer; display: none;">🏠</button>
 
 <script>
+    // Adicione esta variável no topo do seu <script> junto com as outras
+let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
+    pastas: { "Repertório Geral": [] },
+    biblioteca: []
+};
+let pastaAtiva = "";
     let peer, connections = [], role = '';
     let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
     let currentSongIndex = -1, originalCifraText = "", currentTransposedText = ""; 
@@ -140,13 +146,51 @@
 
     if (role === 'S') {
         setupLeader();
-        // ADICIONE ESTA LINHA ABAIXO:
-        renderPastas(); 
+        renderPastas(); // <--- O GATILHO ESTÁ AQUI
     } else {
         const id = document.getElementById('join-id').value.trim();
         if (!id) { alert("Insira o ID do Líder"); return goHome(); }
         localStorage.setItem('last_leader_id', id);
         setupMusician(id);
+    }
+}
+
+    function renderPastas() {
+    const container = document.getElementById('cifra-container');
+    // Esconde os controles de cifra enquanto escolhemos a pasta
+    document.getElementById('info-tom').style.display = 'none';
+    
+    container.innerHTML = `
+        <div style="padding:10px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h2 style="margin:0; font-size:18px;">Pastas</h2>
+                <button onclick="criarPasta()" style="background:#333; color:white; border:1px solid #444; padding:8px 12px; border-radius:8px;">+ Nova</button>
+            </div>
+            <div id="grid-pastas" class="grid-pastas"></div>
+        </div>
+        <button class="btn-floating" onclick="abrirModalBiblioteca()">+</button>
+    `;
+
+    const grid = document.getElementById('grid-pastas');
+    Object.keys(db.pastas).forEach(nome => {
+        const card = document.createElement('div');
+        card.className = 'card-pasta'; // Certifique-se de ter o CSS que te mandei antes
+        card.innerHTML = `
+            <span style="font-size:30px; display:block; margin-bottom:10px;">📁</span>
+            <strong>${nome}</strong><br>
+            <small style="color:#888">${db.pastas[nome].length} músicas</small>
+        `;
+        card.onclick = () => abrirPasta(nome);
+        grid.appendChild(card);
+    });
+}
+
+function criarPasta() {
+    const nome = prompt("Nome da pasta:");
+    if (nome && !db.pastas[nome]) {
+        db.pastas[nome] = [];
+        localStorage.setItem('sync_musician_v7', JSON.stringify(db));
+        renderPastas();
     }
 }
 
@@ -355,4 +399,5 @@
 </body>
 
 </html>
+
 
