@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-br">  
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -129,43 +129,49 @@
         }
     }
 
-    function initRole(r) {
-        role = r;
-        peer = new Peer(); 
-        document.getElementById('setup-screen').classList.add('hidden');
-        document.getElementById('main-app').classList.remove('hidden');
-        document.getElementById('btn-home').style.display = 'block';
+   function initRole(r) {
+    role = r;
+    peer = new Peer(); 
+    document.getElementById('setup-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    document.getElementById('btn-home').style.display = 'block';
 
-        requestWakeLock();
+    requestWakeLock();
 
-        if (role === 'S') {
-            setupLeader();
-        } else {
-            const id = document.getElementById('join-id').value.trim();
-            if (!id) { alert("Insira o ID do Líder"); return goHome(); }
-            localStorage.setItem('last_leader_id', id);
-            setupMusician(id);
-        }
+    if (role === 'S') {
+        setupLeader();
+        // ADICIONE ESTA LINHA ABAIXO:
+        renderPastas(); 
+    } else {
+        const id = document.getElementById('join-id').value.trim();
+        if (!id) { alert("Insira o ID do Líder"); return goHome(); }
+        localStorage.setItem('last_leader_id', id);
+        setupMusician(id);
     }
+}
 
     function setupLeader() {
-        document.getElementById('senior-controls').classList.remove('hidden');
-        document.getElementById('senior-header-controls').classList.remove('hidden');
-        document.getElementById('btn-toggle-tone').style.display = 'block';
-        peer.on('open', id => {
-            currentPeerId = id;
-            document.getElementById('status').innerText = "MODO: LÍDER";
-            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+    document.getElementById('senior-controls').classList.remove('hidden');
+    document.getElementById('senior-header-controls').classList.remove('hidden');
+    document.getElementById('btn-toggle-tone').style.display = 'block';
+    
+    peer.on('open', id => {
+        currentPeerId = id;
+        document.getElementById('status').innerText = "MODO: LÍDER";
+        document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+    });
+
+    peer.on('connection', c => {
+        connections.push(c);
+        // Quando um músico conecta, se o líder já estiver com uma música aberta, envia para ele
+        c.on('open', () => { 
+            if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); 
         });
-        peer.on('connection', c => {
-            connections.push(c);
-            c.on('open', () => { 
-                if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); 
-            });
-        });
-        wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
-        renderToneGrid();
-    }
+    });
+
+    wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
+    renderToneGrid();
+}
 
     function setupMusician(id) {
         peer.on('open', () => {
@@ -349,3 +355,4 @@
 </body>
 
 </html>
+
