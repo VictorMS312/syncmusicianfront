@@ -335,5 +335,17 @@
 
     function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
 </script>
+    <div id="modal-biblioteca">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3>Biblioteca Global</h3>
+        <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:#888; font-size:24px;">✕</button>
+    </div>
+    <input type="text" id="bib-search" placeholder="Pesquisar música salva..." 
+           style="width:100%; padding:12px; border-radius:8px; border:1px solid #333; background:#222; color:white;"
+           oninput="renderBiblioteca()">
+    <div id="bib-list" style="flex:1; overflow-y:auto; margin-top:15px; border:1px solid #222;"></div>
+    <button onclick="importarPeloLink()" style="margin-top:15px; padding:15px; background:#059669; color:white; border:none; border-radius:8px;">+ IMPORTAR NOVO LINK</button>
+</div>
 </body>
+
 </html>
