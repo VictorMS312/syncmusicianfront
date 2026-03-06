@@ -155,41 +155,185 @@ let pastaAtiva = "";
     }
 }
 
-    function renderPastas() {
-    const container = document.getElementById('cifra-container');
-    // Esconde os controles de cifra enquanto escolhemos a pasta
+   // --- DATABASE ---
+let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
+    pastas: { "Repertório Geral": [] },
+    biblioteca: []
+};
+let pastaAtiva = "";
+
+// --- CONTROLE DE TELAS (O SEGREDO ESTÁ AQUI) ---
+function ajustarVisibilidade(tela) {
+    // Esconde tudo primeiro
+    document.getElementById('senior-controls').classList.add('hidden');
+    document.getElementById('senior-header-controls').classList.add('hidden');
     document.getElementById('info-tom').style.display = 'none';
-    
+    document.getElementById('btn-home').style.display = 'block';
+    document.querySelector('.btn-floating').style.display = 'none';
+    document.getElementById('setlist').style.display = 'none';
+
+    if (tela === 'PASTAS') {
+        // Nada de menu de líder aqui
+    } 
+    else if (tela === 'DENTRO_DA_PASTA') {
+        document.querySelector('.btn-floating').style.display = 'flex';
+    } 
+    else if (tela === 'CIFRA_ABERTA') {
+        document.getElementById('senior-controls').classList.remove('hidden');
+        document.getElementById('senior-header-controls').classList.remove('hidden');
+        document.getElementById('info-tom').style.display = 'flex';
+        document.getElementById('setlist').style.display = 'block';
+    }
+}
+
+// --- FUNÇÕES DE RENDERIZAÇÃO ---
+function renderPastas() {
+    ajustarVisibilidade('PASTAS');
+    const container = document.getElementById('cifra-container');
     container.innerHTML = `
         <div style="padding:10px">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
-                <h2 style="margin:0; font-size:18px;">Pastas</h2>
-                <button onclick="criarPasta()" style="background:#333; color:white; border:1px solid #444; padding:8px 12px; border-radius:8px;">+ Nova</button>
-            </div>
+            <h2 style="margin-bottom:15px">Minhas Pastas</h2>
             <div id="grid-pastas" class="grid-pastas"></div>
+            <button onclick="criarPasta()" style="width:100%; padding:15px; background:#222; border:1px dashed #444; color:#aaa; border-radius:10px; margin-top:10px">+ Criar Nova Pasta</button>
         </div>
-        <button class="btn-floating" onclick="abrirModalBiblioteca()">+</button>
     `;
 
     const grid = document.getElementById('grid-pastas');
     Object.keys(db.pastas).forEach(nome => {
         const card = document.createElement('div');
-        card.className = 'card-pasta'; // Certifique-se de ter o CSS que te mandei antes
-        card.innerHTML = `
-            <span style="font-size:30px; display:block; margin-bottom:10px;">📁</span>
-            <strong>${nome}</strong><br>
-            <small style="color:#888">${db.pastas[nome].length} músicas</small>
-        `;
-        card.onclick = () => abrirPasta(nome);
+        card.className = 'card-pasta';
+        card.innerHTML = `<span class="folder-icon">📁</span><strong style="font-size:13px">${nome}</strong>`;
+        card.onclick = (e) => { e.stopPropagation(); abrirPasta(nome); };
         grid.appendChild(card);
     });
 }
 
+function abrirPasta(nome) {
+    pastaAtiva = nome;
+    ajustarVisibilidade('DENTRO_DA_PASTA');
+    const container = document.getElementById('cifra-container');
+    
+    container.innerHTML = `
+        <div style="padding:15px">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px">
+                <button onclick="renderPastas()" style="background:none; border:none; color:#2563eb; font-size:20px">←</button>
+                <h3 style="margin:0">${nome}</h3>
+            </div>
+            <div id="lista-musicas-vazia"></div>
+        </div>
+    `;
+
+    const listDiv = document.getElementById('lista-musicas-vazia');
+    if (db.pastas[nome].length === 0) {
+        listDiv.innerHTML = "<p style='color:#555; text-align:center; margin-top:40px;'>Nenhuma música aqui.<br>Clique no + para adicionar.</p>";
+    } else {
+        db.pastas[nome].forEach((musica, index) => {
+            const item = document.createElement('div');
+            item.className = 'song-item';
+            item.style.display = 'flex';
+            item.style.justifyContent = 'space-between';
+            item.innerHTML = `
+                <div onclick="abrirMusicaFinal('${nome}', ${index})" style="flex:1">${musica.title}</div>
+                <button onclick="removerDaPasta(${index})" style="background:none; border:none; color:red">✕</button>
+            `;
+            listDiv.appendChild(item);
+        });
+    }
+}
+
+function abrirMusicaFinal(nomePasta, index) {
+    const musica = db.pastas[nomePasta][index];
+    ajustarVisibilidade('CIFRA_ABERTA');
+    
+    // Configura os dados da música no seu sistema antigo
+    originalCifraText = musica.content;
+    currentTransposedText = musica.content;
+    currentTone = musica.originalTone || "C";
+    
+    document.getElementById('orig-val').innerText = currentTone;
+    document.getElementById('curr-val').innerText = currentTone;
+    
+    renderCifraComCores(musica.content);
+    
+    // Sincroniza com os músicos
+    connections.forEach(c => {
+        if (c.open) c.send({ type: 'SYNC', body: musica.content, tone: currentTone });
+    });
+}
+
+// --- BIBLIOTECA E IMPORTAÇÃO ---
+function abrirModalBiblioteca() {
+    document.getElementById('modal-biblioteca').style.display = 'flex';
+    renderBiblioteca();
+}
+
+function fecharModalBiblioteca() {
+    document.getElementById('modal-biblioteca').style.display = 'none';
+}
+
+function renderBiblioteca() {
+    const container = document.getElementById('bib-list');
+    const busca = document.getElementById('bib-search').value.toLowerCase();
+    container.innerHTML = "";
+
+    db.biblioteca.filter(m => m.title.toLowerCase().includes(busca)).forEach(musica => {
+        const div = document.createElement('div');
+        div.className = 'song-item';
+        div.style.padding = '10px';
+        div.innerHTML = `
+            <span>${musica.title}</span>
+            <button onclick="adicionarDaBib('${musica.title}')" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:5px">Add</button>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function adicionarDaBib(titulo) {
+    const musica = db.biblioteca.find(m => m.title === titulo);
+    if (musica && !db.pastas[pastaAtiva].some(m => m.title === titulo)) {
+        db.pastas[pastaAtiva].push(musica);
+        salvarDB();
+        abrirPasta(pastaAtiva);
+        fecharModalBiblioteca();
+    }
+}
+
+async function importarPeloLink() {
+    const url = prompt("Cole o link do Cifra Club:");
+    if (!url) return;
+
+    try {
+        // Usando sua lógica de fetch do Sync Musician
+        const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        
+        const novaMusica = { 
+            title: data.titulo || "Sem título", 
+            content: data.cifra, 
+            url: url, 
+            originalTone: "C" 
+        };
+
+        if (!db.biblioteca.some(m => m.title === novaMusica.title)) {
+            db.biblioteca.push(novaMusica);
+        }
+        db.pastas[pastaAtiva].push(novaMusica);
+        
+        salvarDB();
+        abrirPasta(pastaAtiva);
+        fecharModalBiblioteca();
+    } catch (e) { alert("Erro ao importar."); }
+}
+
+function salvarDB() {
+    localStorage.setItem('sync_musician_v7', JSON.stringify(db));
+}
+
 function criarPasta() {
-    const nome = prompt("Nome da pasta:");
+    const nome = prompt("Nome da nova pasta:");
     if (nome && !db.pastas[nome]) {
         db.pastas[nome] = [];
-        localStorage.setItem('sync_musician_v7', JSON.stringify(db));
+        salvarDB();
         renderPastas();
     }
 }
@@ -399,5 +543,6 @@ function criarPasta() {
 </body>
 
 </html>
+
 
 
