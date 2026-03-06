@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Musician Pro </title>
+    <title>Sync Musician Pro v7.1</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f1f1f">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <script src="https://unpkg.com/html5-qrcode"></script>
     <link rel="stylesheet" href="style.css">
     <style>
-        /* Ajustes de UI para Pastas e Responsividade */
+        /* Ajustes Visuais Solicitados */
         .grid-pastas {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -27,15 +27,22 @@
             border: 1px solid #333;
             text-align: center;
             cursor: pointer;
-            transition: transform 0.2s;
             word-wrap: break-word;
         }
-        .card-pasta:active { transform: scale(0.95); }
-        .folder-icon { font-size: 40px; display: block; margin-bottom: 8px; }
         
+        /* Padding nos balões das músicas para não colarem */
+        .song-item {
+            padding: 18px;
+            margin-bottom: 12px;
+            background: #111;
+            border-radius: 12px;
+            border: 1px solid #222;
+        }
+
+        /* Botões Flutuantes */
         .btn-floating {
             position: fixed;
-            bottom: 80px;
+            bottom: 30px;
             right: 25px;
             width: 60px;
             height: 60px;
@@ -51,39 +58,73 @@
             justify-content: center;
         }
 
-        .hidden { display: none !important; }
-        #reader { width: 100%; max-width: 300px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
-        
-        /* Modal Biblioteca */
+        #btn-home {
+            position: fixed;
+            bottom: 30px;
+            right: 25px; /* Mesmo lugar do outro, pois eles alternam */
+            background: #444;
+            color: white;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            border: none;
+            font-size: 25px;
+            z-index: 999;
+        }
+
+        /* Modal Reduzido */
         #modal-biblioteca {
             position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.95);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 400px;
+            height: 70vh;
+            background: #1a1a1a;
             z-index: 10000;
             display: none;
             flex-direction: column;
             padding: 20px;
+            border-radius: 20px;
+            border: 1px solid #333;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
+
+        .bib-scroll {
+            flex: 1;
+            overflow-y: auto;
+            margin-top: 15px;
+            border-top: 1px solid #333;
+        }
+
+        .bib-item {
+            padding: 12px;
+            border-bottom: 1px solid #222;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
 <div id="setup-screen" style="padding: 30px; text-align: center;">
-    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician </h1>
+    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician v7.1</h1>
     <p id="last-session-info" style="font-size: 12px; color: #888; margin-bottom: 20px;"></p>
 
     <button onclick="initRole('S')" class="btn-main" style="width: 240px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button>
-    
     <div style="margin: 20px 0; border-top: 1px solid #333; position: relative;">
         <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #000; padding: 0 10px; color: #555;">OU</span>
     </div>
-
     <div style="display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 20px;">
         <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center; padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333;">
         <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px; border: none;">📷</button>
     </div>
     <div id="reader"></div> 
-    
     <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 240px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
 </div>
 
@@ -94,8 +135,7 @@
     </div>
 
     <div class="header">
-        <div id="status">Conectando...</div>
-        <div id="senior-header-controls" class="hidden id-display">
+        <div id="status">Conectando...</div> <div id="senior-header-controls" class="hidden id-display">
             <button class="btn-action" onclick="copyID()">COPIAR ID</button>
             <button class="btn-action btn-qr" onclick="toggleQR()">QR</button>
         </div>
@@ -108,7 +148,6 @@
             </div>
             <button class="btn-scroll-toggle" onclick="toggleScrollPanel()">SCROLL</button>
         </div>
-
         <div id="scroll-panel">
             <div class="scroll-row">
                 <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background: #059669; min-width: 100px;">PLAY</button>
@@ -127,38 +166,33 @@
             </div>
             <button id="btn-toggle-tone" class="btn-action" onclick="toggleToneGrid()" style="background: #ff9800; color: #000;">ALTERAR TOM</button>
         </div>
-        <div id="dynamic-content">
-            </div>
+        <div id="dynamic-content"></div>
     </div>
 </div>
 
 <button id="btn-floating-add" class="btn-floating hidden" onclick="abrirModalBiblioteca()">+</button>
-<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; display: none;">🏠</button>
+<button id="btn-home" onclick="goHome()" class="hidden">🏠</button>
 
 <div id="modal-biblioteca">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3 style="margin:0">Adicionar à Pasta</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin:0; font-size: 16px;">Adicionar Música</h3>
         <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:#888; font-size:24px;">✕</button>
     </div>
-    <input type="text" id="url-input" placeholder="Colar Link da Cifra" style="width:100%; padding:15px; border-radius:10px; background:#111; color:white; border:1px solid #333; margin-bottom:10px;">
-    <button onclick="importarPeloLink()" style="width:100%; padding:15px; background:#059669; color:white; border:none; border-radius:10px; font-weight:bold;">+ IMPORTAR DO LINK</button>
+    
+    <input type="text" id="url-input" placeholder="Link do Cifra Club" style="width:100%; padding:12px; border-radius:8px; background:#000; color:white; border:1px solid #333; margin-bottom:10px; box-sizing: border-box;">
+    <button onclick="importarPeloLink()" style="width:100%; padding:12px; background:#059669; color:white; border:none; border-radius:8px; font-weight:bold;">IMPORTAR NOVO LINK</button>
+    
+    <div class="bib-scroll" id="biblioteca-lista">
+        </div>
 </div>
 
 <script>
-    // --- DATABASE & MIGRATION ---
-    let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
-        pastas: { "Repertório Geral": [] }
+    // --- DATABASE ---
+    let db = JSON.parse(localStorage.getItem('sync_musician_v7.1')) || {
+        pastas: { "Repertório Geral": [] },
+        biblioteca: [] // Onde as músicas ficam salvas de verdade (sem duplicatas)
     };
 
-    // Migrar dados do v6 se existirem
-    const oldSetlist = JSON.parse(localStorage.getItem('setlist'));
-    if (oldSetlist && oldSetlist.length > 0) {
-        db.pastas["Repertório Geral"] = [...db.pastas["Repertório Geral"], ...oldSetlist];
-        localStorage.removeItem('setlist');
-        localStorage.setItem('sync_musician_v7', JSON.stringify(db));
-    }
-
-    // --- VARIÁVEIS GLOBAIS ---
     let peer, connections = [], role = '';
     let pastaAtiva = "", musicaAtivaIndex = -1;
     let originalCifraText = "", currentTransposedText = "";
@@ -166,13 +200,9 @@
     const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     const wrapper = document.getElementById('cifra-wrapper');
 
-    // --- INICIALIZAÇÃO ---
     window.onload = () => {
         const lastLeaderId = localStorage.getItem('last_leader_id');
-        if (lastLeaderId) {
-            document.getElementById('join-id').value = lastLeaderId;
-            document.getElementById('last-session-info').innerText = "Último ID: " + lastLeaderId;
-        }
+        if (lastLeaderId) document.getElementById('join-id').value = lastLeaderId;
     };
 
     function initRole(r) {
@@ -180,27 +210,29 @@
         peer = new Peer();
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
-        document.getElementById('btn-home').style.display = 'block';
 
         if (role === 'S') {
             setupLeader();
             renderPastas();
         } else {
             const id = document.getElementById('join-id').value.trim();
-            if (!id) { alert("ID necessário"); return goHome(); }
+            if (!id) { alert("ID necessário"); return location.reload(); }
             localStorage.setItem('last_leader_id', id);
             setupMusician(id);
         }
     }
 
-    // --- NAVEGAÇÃO DE CONTEÚDO ---
+    // --- NAVEGAÇÃO ---
     function renderPastas() {
         pastaAtiva = ""; musicaAtivaIndex = -1;
         document.getElementById('song-controls').classList.add('hidden');
         document.getElementById('info-tom').classList.add('hidden');
+        
+        // Regra do Botão Home: Só aparece na tela de pastas
+        document.getElementById('btn-home').classList.remove('hidden');
         document.getElementById('btn-floating-add').classList.add('hidden');
         
-        let html = `<div style="padding:10px"><h2>Pastas</h2><div class="grid-pastas">`;
+        let html = `<div style="padding:10px"><h2>Minhas Pastas</h2><div class="grid-pastas">`;
         Object.keys(db.pastas).forEach(nome => {
             html += `
                 <div class="card-pasta" onclick="abrirPasta('${nome}')">
@@ -215,27 +247,33 @@
 
     function abrirPasta(nome) {
         pastaAtiva = nome;
+        // Alterna botões: Esconde Home, Mostra Add
+        document.getElementById('btn-home').classList.add('hidden');
         document.getElementById('btn-floating-add').classList.remove('hidden');
+        
         let html = `
             <div style="padding:15px">
-                <button onclick="renderPastas()" style="background:none; border:none; color:#2563eb; font-weight:bold; margin-bottom:15px;">← VOLTAR</button>
+                <button onclick="renderPastas()" style="background:none; border:none; color:#2563eb; font-weight:bold; margin-bottom:15px;">← VOLTAR ÀS PASTAS</button>
                 <h3>${nome}</h3>
                 <div id="lista-musicas">`;
         
-        db.pastas[nome].forEach((m, i) => {
-            html += `<div class="song-item" onclick="abrirMusica(${i})"><strong>${m.title}</strong></div>`;
+        db.pastas[nome].forEach((mId, i) => {
+            const musica = db.biblioteca.find(b => b.id === mId);
+            if (musica) html += `<div class="song-item" onclick="abrirMusica(${i})"><strong>${musica.title}</strong></div>`;
         });
-
-        if (db.pastas[nome].length === 0) html += `<p style="color:#666; text-align:center; margin-top:30px;">Pasta vazia</p>`;
-        
         html += `</div></div>`;
         document.getElementById('dynamic-content').innerHTML = html;
     }
 
     function abrirMusica(index) {
         musicaAtivaIndex = index;
-        const musica = db.pastas[pastaAtiva][index];
+        const mId = db.pastas[pastaAtiva][index];
+        const musica = db.biblioteca.find(b => b.id === mId);
         
+        // Esconde todos os botões flutuantes na cifra
+        document.getElementById('btn-home').classList.add('hidden');
+        document.getElementById('btn-floating-add').classList.add('hidden');
+
         originalCifraText = musica.content;
         currentTransposedText = musica.content;
         currentTone = musica.originalTone || "C";
@@ -244,7 +282,6 @@
         document.getElementById('dynamic-content').innerHTML = `<div id="cifra-container" style="padding:20px"></div>`;
         document.getElementById('song-controls').classList.remove('hidden');
         document.getElementById('info-tom').classList.remove('hidden');
-        document.getElementById('btn-floating-add').classList.add('hidden');
         
         document.getElementById('orig-val').innerText = baseNote;
         document.getElementById('curr-val').innerText = currentTone;
@@ -254,12 +291,83 @@
         wrapper.scrollTop = 0; scrollPos = 0;
     }
 
-    // --- LÓGICA DE LÍDER / MÚSICO ---
+    // --- LOGICA DE BIBLIOTECA (EVITAR DUPLICATAS) ---
+    async function importarPeloLink() {
+        const url = document.getElementById('url-input').value.trim();
+        if (!url) return;
+        
+        // 1. Verificar se a música já existe na biblioteca pelo link
+        const musicaExistente = db.biblioteca.find(m => m.url === url);
+        if (musicaExistente) {
+            adicionarDaBiblioteca(musicaExistente.id);
+            document.getElementById('url-input').value = "";
+            return;
+        }
+
+        const btn = document.querySelector('#modal-biblioteca button');
+        btn.innerText = "BAIXANDO..."; btn.disabled = true;
+
+        try {
+            const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
+            const data = await res.json();
+            
+            const novoId = Date.now().toString();
+            const novaMusica = { 
+                id: novoId,
+                url: url,
+                title: data.titulo || "Sem título", 
+                content: data.cifra, 
+                originalTone: "C" 
+            };
+            
+            db.biblioteca.push(novaMusica);
+            db.pastas[pastaAtiva].push(novoId);
+            salvarDB();
+            abrirPasta(pastaAtiva);
+            fecharModalBiblioteca();
+            document.getElementById('url-input').value = "";
+        } catch (e) { alert("Erro ao importar."); }
+        finally { btn.innerText = "IMPORTAR NOVO LINK"; btn.disabled = false; }
+    }
+
+    function renderBibliotecaNoModal() {
+        const lista = document.getElementById('biblioteca-lista');
+        lista.innerHTML = '<p style="font-size:12px; color:#555; margin-bottom:10px;">Músicas já salvas:</p>';
+        
+        db.biblioteca.forEach(m => {
+            const jaNaPasta = db.pastas[pastaAtiva].includes(m.id);
+            const item = document.createElement('div');
+            item.className = 'bib-item';
+            item.innerHTML = `
+                <span>${m.title}</span>
+                ${jaNaPasta ? '<span style="color:#059669">✓</span>' : `<button onclick="adicionarDaBiblioteca('${m.id}')" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:5px; font-size:11px;">ADD</button>`}
+            `;
+            lista.appendChild(item);
+        });
+    }
+
+    function adicionarDaBiblioteca(mId) {
+        if (!db.pastas[pastaAtiva].includes(mId)) {
+            db.pastas[pastaAtiva].push(mId);
+            salvarDB();
+            abrirPasta(pastaAtiva);
+            fecharModalBiblioteca();
+        }
+    }
+
+    function abrirModalBiblioteca() { 
+        document.getElementById('modal-biblioteca').style.display = 'flex'; 
+        renderBibliotecaNoModal();
+    }
+
+    // --- CORE (RESTAURADO E AJUSTADO) ---
     function setupLeader() {
         document.getElementById('senior-header-controls').classList.remove('hidden');
         peer.on('open', id => {
-            document.getElementById('status').innerText = "LÍDER ID: " + id;
+            // Ajuste solicitado: Mostrar Modo Líder em vez de Lider ID
+            document.getElementById('status').innerText = "MODO LÍDER";
             document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+            peer.idParaCopiar = id;
         });
         peer.on('connection', c => {
             connections.push(c);
@@ -274,7 +382,7 @@
         peer.on('open', () => {
             document.getElementById('status').innerText = "CONECTANDO...";
             const c = peer.connect(id);
-            c.on('open', () => { document.getElementById('status').innerText = "CONECTADO AO LÍDER"; });
+            c.on('open', () => { document.getElementById('status').innerText = "MODO MÚSICO"; });
             c.on('data', data => {
                 if (data.type === 'SYNC') {
                     document.getElementById('dynamic-content').innerHTML = `<div id="cifra-container" style="padding:20px"></div>`;
@@ -287,7 +395,6 @@
         });
     }
 
-    // --- FERRAMENTAS (RESTAURADAS V6) ---
     function renderCifraComCores(text) {
         const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
         const container = document.getElementById('cifra-container');
@@ -306,7 +413,6 @@
     }
 
     function selectDirectTone(targetNote) {
-        if (musicaAtivaIndex === -1) return;
         const diff = notes.indexOf(targetNote) - notes.indexOf(baseNote);
         currentTransposedText = transposeText(originalCifraText, diff);
         currentTone = targetNote;
@@ -330,7 +436,13 @@
         connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body, tone }); });
     }
 
-    // --- GERENCIAMENTO DE PASTA ---
+    function salvarDB() { localStorage.setItem('sync_musician_v7.1', JSON.stringify(db)); }
+    function goHome() { location.reload(); }
+    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
+    function copyID() { if (peer.idParaCopiar) navigator.clipboard.writeText(peer.idParaCopiar).then(() => alert("ID Copiado!")); }
+    function toggleToneGrid() { const g = document.getElementById('tone-grid'); g.style.display = g.style.display === 'grid' ? 'none' : 'grid'; }
+    function toggleScrollPanel() { const p = document.getElementById('scroll-panel'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; }
+    function fecharModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'none'; }
     function criarPasta() {
         const nome = prompt("Nome da nova pasta:");
         if (nome && !db.pastas[nome]) {
@@ -339,49 +451,14 @@
             renderPastas();
         }
     }
-
-    async function importarPeloLink() {
-        const url = document.getElementById('url-input').value.trim();
-        if (!url) return;
-        
-        const btn = document.querySelector('#modal-biblioteca button');
-        btn.innerText = "BAIXANDO..."; btn.disabled = true;
-
-        try {
-            const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
-            const data = await res.json();
-            const novaMusica = { 
-                title: data.titulo || "Sem título", 
-                content: data.cifra, 
-                originalTone: "C" 
-            };
-            db.pastas[pastaAtiva].push(novaMusica);
-            salvarDB();
-            abrirPasta(pastaAtiva);
-            fecharModalBiblioteca();
-        } catch (e) { alert("Erro ao importar."); }
-        finally { btn.innerText = "+ IMPORTAR DO LINK"; btn.disabled = false; }
-    }
-
     function excluirMusicaAtual() {
-        if (confirm("Excluir esta música permanentemente?")) {
+        if (confirm("Remover esta música da pasta?")) {
             db.pastas[pastaAtiva].splice(musicaAtivaIndex, 1);
             salvarDB();
             abrirPasta(pastaAtiva);
         }
     }
 
-    // --- UTILITÁRIOS ---
-    function salvarDB() { localStorage.setItem('sync_musician_v7', JSON.stringify(db)); }
-    function goHome() { location.reload(); }
-    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
-    function copyID() { if (peer.id) navigator.clipboard.writeText(peer.id).then(() => alert("ID Copiado!")); }
-    function toggleToneGrid() { const g = document.getElementById('tone-grid'); g.style.display = g.style.display === 'grid' ? 'none' : 'grid'; }
-    function toggleScrollPanel() { const p = document.getElementById('scroll-panel'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; }
-    function abrirModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'flex'; }
-    function fecharModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'none'; }
-
-    // --- SCANNER QR ---
     function startScanner() {
         const readerDiv = document.getElementById('reader');
         readerDiv.style.display = 'block';
@@ -393,7 +470,6 @@
     }
     function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
 
-    // --- ROLAGEM AUTOMÁTICA ---
     function scrollLoop() {
         if (!isScrolling) return;
         const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50);
