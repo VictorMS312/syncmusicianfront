@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Musician v6.0</title>
+    <title>Sync Musician v7.0</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f1f1f">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,406 +11,219 @@
   
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* CSS ESSENCIAL PARA O FUNCIONAMENTO */
+        body { background: #000; color: #eee; font-family: sans-serif; margin: 0; }
+        .hidden { display: none !important; }
+        
+        /* Grid de Pastas */
+        .grid-pastas {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            padding: 15px;
+        }
+        .card-pasta {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            text-align: center;
+            cursor: pointer;
+        }
+        .folder-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+        /* Botão Flutuante + */
+        .btn-floating {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #2563eb;
+            color: white;
+            border-radius: 50%;
+            border: none;
+            font-size: 30px;
+            display: none; /* JS mostra quando necessário */
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+
+        /* Modal Biblioteca */
+        #modal-biblioteca {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            z-index: 2000;
+            display: none;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        /* Estilos legados do seu v6.0 */
+        .header { background: #1f1f1f; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #333; }
+        .btn-main { background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; }
+        #cifra-container { font-family: monospace; white-space: pre; padding: 20px; font-size: 16px; line-height: 1.5; }
+        .chord { color: #ff9800; font-weight: bold; }
+        .song-item { padding: 15px; border-bottom: 1px solid #222; background: #111; margin-bottom: 5px; border-radius: 8px; }
+        #cifra-wrapper { height: calc(100vh - 120px); overflow-y: auto; }
+    </style>
 </head>
 <body>
 
 <div id="setup-screen" style="padding: 30px; text-align: center;">
-    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician v6.0</h1>
-    <p id="last-session-info" style="font-size: 12px; color: #888; margin-bottom: 20px;"></p>
-
-    <div id="category-menu" style="margin-bottom: 30px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-        </div>
-
+    <h1>Sync Musician v7.0</h1>
+    <p id="last-session-info" style="color: #888;"></p>
     <button onclick="initRole('S')" class="btn-main" style="width: 240px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button>
-    
-    <div style="margin: 20px 0; border-top: 1px solid #333; position: relative;">
-        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #1f1f1f; padding: 0 10px; color: #555;">OU</span>
-    </div>
-
-    <div style="display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 20px;">
-        <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center;">
-        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px;">📷</button>
-    </div>
-    <div id="reader" style="width: 300px; margin: 10px auto; background: #000; display: none;"></div> 
-    
+    <div style="color: #555; margin: 20px;">OU</div>
+    <input type="text" id="join-id" placeholder="ID do Líder" style="padding: 12px; border-radius: 8px; border: 1px solid #333; background: #111; color: white;">
     <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 240px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
 </div>
 
 <div id="main-app" class="hidden">
-    <div id="qr-modal" class="qr-box">
-        <img id="qr-img" src="" alt="QR Code">
-        <button onclick="toggleQR()" style="background:#000; color:white; width:100%; padding:8px; border-radius:5px; margin-top:10px;">FECHAR</button>
-    </div>
-
     <div class="header">
         <div id="status">Conectando...</div>
-        <div id="senior-header-controls" class="hidden id-display">
-            <button class="btn-action" onclick="copyID()">COPIAR ID</button>
-            <button class="btn-action btn-qr" onclick="toggleQR()">QR CODE</button>
+        <div id="senior-header-controls" class="hidden">
+            <button onclick="copyID()">ID</button>
+            <button onclick="toggleQR()">QR</button>
         </div>
     </div>
 
-    <div class="controls">
-        <div id="senior-controls" class="hidden" style="display: flex; gap: 5px; flex: 1;">
-            <input type="text" id="url-input" placeholder="Link Cifra Club">
-            <button id="btn-save" class="btn-main" onclick="addSong()">+ SALVAR</button>
-            <button class="btn-danger" onclick="deleteCurrentSong()">APAGAR</button>
-        </div>
-        <button class="btn-scroll-toggle" onclick="toggleScrollPanel()">SCROLL</button>
+    <div id="senior-controls" class="hidden" style="padding: 10px; background: #111; display: flex; gap: 5px;">
+        <input type="text" id="url-input" placeholder="Link Cifra Club" style="flex: 1; padding: 8px;">
+        <button onclick="addSong()">SALVAR</button>
     </div>
 
-    <div id="scroll-panel">
-        <div class="scroll-row">
-            <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background: #059669; min-width: 100px; padding: 12px;">PLAY</button>
-            <span style="font-size: 10px; color: #aaa;">VELOCIDADE:</span>
-            <input type="range" id="scroll-speed" min="1" max="100" value="20">
-        </div>
+    <div id="info-tom" style="display:none; padding: 10px; background: #111; border-bottom: 1px solid #222;">
+        TOM: <span id="curr-val" style="color: #ff9800;">-</span>
     </div>
-
-    <div id="tone-grid"></div>
-    <div id="setlist"></div>
 
     <div id="cifra-wrapper">
-        <div id="info-tom">
-            <div>
-                TOM: <span id="curr-val" class="tom-destaque">-</span>
-                <small>(Original: <span id="orig-val">-</span>)</small>
-            </div>
-            <button id="btn-toggle-tone" class="btn-action" onclick="toggleToneGrid()" style="background: #ff9800; color: #000; display: none;">ALTERAR TOM</button>
-        </div>
-        <div id="cifra-container">Aguardando líder...</div>
+        <div id="cifra-container">Selecione uma pasta ou música...</div>
     </div>
 </div>
 
-<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; cursor: pointer; display: none;">🏠</button>
+<button class="btn-floating" onclick="abrirModalBiblioteca()">+</button>
+<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; left: 20px; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; display: none;">🏠</button>
+
+<div id="modal-biblioteca">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>Adicionar Música</h3>
+        <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:white; font-size:24px;">✕</button>
+    </div>
+    <button onclick="importarPeloLink()" style="padding:15px; background:#059669; color:white; border:none; border-radius:8px; margin: 10px 0;">+ IMPORTAR NOVO LINK</button>
+    <div id="bib-list" style="overflow-y: auto; flex: 1;"></div>
+</div>
 
 <script>
-    // Adicione esta variável no topo do seu <script> junto com as outras
-let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
-    pastas: { "Repertório Geral": [] },
-    biblioteca: []
-};
-let pastaAtiva = "";
-    let peer, connections = [], role = '';
-    let savedSongs = JSON.parse(localStorage.getItem('setlist') || '[]');
-    let currentSongIndex = -1, originalCifraText = "", currentTransposedText = ""; 
-    let currentTone = "-", baseNote = "C", currentPeerId = "", html5QrCode;
-    
-    let isScrolling = false;
-    let scrollPos = 0; 
-    let wakeLock = null; 
-    const wrapper = document.getElementById('cifra-wrapper');
-    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-
-    // 1. PERSISTÊNCIA AO CARREGAR
-    window.onload = () => {
-        renderSetlist();
-        const lastLeaderId = localStorage.getItem('last_leader_id');
-        if (lastLeaderId) {
-            document.getElementById('join-id').value = lastLeaderId;
-            document.getElementById('last-session-info').innerText = "Último ID conectado: " + lastLeaderId;
-        }
-        
-        const lastSong = localStorage.getItem('last_viewed_song');
-        if (lastSong) {
-            renderCifraComCores(lastSong);
-            document.getElementById('status').innerText = "MODO OFFLINE (Cache)";
-        }
+    let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
+        pastas: { "Repertório Geral": [] },
+        biblioteca: []
     };
+    let pastaAtiva = "";
+    let peer, connections = [], role = '';
+    let currentTransposedText = "", currentTone = "C";
 
-    // 2. FUNÇÃO HOME
-    function goHome() {
-        isScrolling = false;
-        if (peer) peer.destroy(); 
-        document.getElementById('main-app').classList.add('hidden');
-        document.getElementById('setup-screen').classList.remove('hidden');
-        document.getElementById('btn-home').style.display = 'none';
-        document.getElementById('status').innerText = "Conectando...";
-    }
+    function initRole(r) {
+        role = r;
+        peer = new Peer(); 
+        
+        // MOSTRAR APP E ESCONDER SETUP
+        document.getElementById('setup-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('btn-home').style.display = 'block';
 
-    async function requestWakeLock() {
-        if ('wakeLock' in navigator) {
-            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+        if (role === 'S') {
+            setupLeader();
+            renderPastas(); // Começa pelas pastas no modo líder
+        } else {
+            const id = document.getElementById('join-id').value.trim();
+            if (!id) { alert("Insira o ID"); return goHome(); }
+            setupMusician(id);
         }
     }
 
-   function initRole(r) {
-    role = r;
-    peer = new Peer(); 
-    document.getElementById('setup-screen').classList.add('hidden');
-    document.getElementById('main-app').classList.remove('hidden');
-    document.getElementById('btn-home').style.display = 'block';
+    function ajustarVisibilidade(tela) {
+        // IDs que PRECISAM existir no HTML acima:
+        const seniorCtrl = document.getElementById('senior-controls');
+        const seniorHeader = document.getElementById('senior-header-controls');
+        const infoTom = document.getElementById('info-tom');
+        const btnPlus = document.querySelector('.btn-floating');
 
-    requestWakeLock();
+        seniorCtrl.classList.add('hidden');
+        seniorHeader.classList.add('hidden');
+        infoTom.style.display = 'none';
+        btnPlus.style.display = 'none';
 
-    if (role === 'S') {
-        setupLeader();
-        renderPastas(); // <--- O GATILHO ESTÁ AQUI
-    } else {
-        const id = document.getElementById('join-id').value.trim();
-        if (!id) { alert("Insira o ID do Líder"); return goHome(); }
-        localStorage.setItem('last_leader_id', id);
-        setupMusician(id);
+        if (tela === 'PASTAS') {
+            // Fica tudo escondido mesmo
+        } 
+        else if (tela === 'DENTRO_DA_PASTA') {
+            btnPlus.style.display = 'flex';
+        } 
+        else if (tela === 'CIFRA_ABERTA') {
+            seniorCtrl.classList.remove('hidden');
+            seniorHeader.classList.remove('hidden');
+            infoTom.style.display = 'block';
+        }
     }
-}
 
-   // --- DATABASE ---
-let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
-    pastas: { "Repertório Geral": [] },
-    biblioteca: []
-};
-let pastaAtiva = "";
-
-// --- CONTROLE DE TELAS (O SEGREDO ESTÁ AQUI) ---
-function ajustarVisibilidade(tela) {
-    // Esconde tudo primeiro
-    document.getElementById('senior-controls').classList.add('hidden');
-    document.getElementById('senior-header-controls').classList.add('hidden');
-    document.getElementById('info-tom').style.display = 'none';
-    document.getElementById('btn-home').style.display = 'block';
-    document.querySelector('.btn-floating').style.display = 'none';
-    document.getElementById('setlist').style.display = 'none';
-
-    if (tela === 'PASTAS') {
-        // Nada de menu de líder aqui
-    } 
-    else if (tela === 'DENTRO_DA_PASTA') {
-        document.querySelector('.btn-floating').style.display = 'flex';
-    } 
-    else if (tela === 'CIFRA_ABERTA') {
-        document.getElementById('senior-controls').classList.remove('hidden');
-        document.getElementById('senior-header-controls').classList.remove('hidden');
-        document.getElementById('info-tom').style.display = 'flex';
-        document.getElementById('setlist').style.display = 'block';
-    }
-}
-
-// --- FUNÇÕES DE RENDERIZAÇÃO ---
-function renderPastas() {
-    ajustarVisibilidade('PASTAS');
-    const container = document.getElementById('cifra-container');
-    container.innerHTML = `
-        <div style="padding:10px">
-            <h2 style="margin-bottom:15px">Minhas Pastas</h2>
-            <div id="grid-pastas" class="grid-pastas"></div>
-            <button onclick="criarPasta()" style="width:100%; padding:15px; background:#222; border:1px dashed #444; color:#aaa; border-radius:10px; margin-top:10px">+ Criar Nova Pasta</button>
-        </div>
-    `;
-
-    const grid = document.getElementById('grid-pastas');
-    Object.keys(db.pastas).forEach(nome => {
-        const card = document.createElement('div');
-        card.className = 'card-pasta';
-        card.innerHTML = `<span class="folder-icon">📁</span><strong style="font-size:13px">${nome}</strong>`;
-        card.onclick = (e) => { e.stopPropagation(); abrirPasta(nome); };
-        grid.appendChild(card);
-    });
-}
-
-function abrirPasta(nome) {
-    pastaAtiva = nome;
-    ajustarVisibilidade('DENTRO_DA_PASTA');
-    const container = document.getElementById('cifra-container');
-    
-    container.innerHTML = `
-        <div style="padding:15px">
-            <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px">
-                <button onclick="renderPastas()" style="background:none; border:none; color:#2563eb; font-size:20px">←</button>
-                <h3 style="margin:0">${nome}</h3>
+    function renderPastas() {
+        ajustarVisibilidade('PASTAS');
+        const container = document.getElementById('cifra-container');
+        container.innerHTML = `
+            <div style="padding:10px">
+                <h2>Minhas Pastas</h2>
+                <div id="grid-pastas" class="grid-pastas"></div>
+                <button onclick="criarPasta()" style="width:100%; padding:15px; background:#222; color:#aaa; border-radius:10px; border: 1px dashed #444;">+ Nova Pasta</button>
             </div>
-            <div id="lista-musicas-vazia"></div>
-        </div>
-    `;
+        `;
 
-    const listDiv = document.getElementById('lista-musicas-vazia');
-    if (db.pastas[nome].length === 0) {
-        listDiv.innerHTML = "<p style='color:#555; text-align:center; margin-top:40px;'>Nenhuma música aqui.<br>Clique no + para adicionar.</p>";
-    } else {
+        const grid = document.getElementById('grid-pastas');
+        Object.keys(db.pastas).forEach(nome => {
+            const card = document.createElement('div');
+            card.className = 'card-pasta';
+            card.innerHTML = `<span class="folder-icon">📁</span><strong>${nome}</strong>`;
+            card.onclick = () => abrirPasta(nome);
+            grid.appendChild(card);
+        });
+    }
+
+    function abrirPasta(nome) {
+        pastaAtiva = nome;
+        ajustarVisibilidade('DENTRO_DA_PASTA');
+        const container = document.getElementById('cifra-container');
+        container.innerHTML = `
+            <div style="padding:15px">
+                <button onclick="renderPastas()" style="color:#2563eb; background:none; border:none; margin-bottom:10px">← Voltar</button>
+                <h3>${nome}</h3>
+                <div id="lista-musicas"></div>
+            </div>
+        `;
+
+        const listDiv = document.getElementById('lista-musicas');
         db.pastas[nome].forEach((musica, index) => {
             const item = document.createElement('div');
             item.className = 'song-item';
-            item.style.display = 'flex';
-            item.style.justifyContent = 'space-between';
-            item.innerHTML = `
-                <div onclick="abrirMusicaFinal('${nome}', ${index})" style="flex:1">${musica.title}</div>
-                <button onclick="removerDaPasta(${index})" style="background:none; border:none; color:red">✕</button>
-            `;
+            item.innerHTML = `<strong>${musica.title}</strong>`;
+            item.onclick = () => abrirMusicaFinal(nome, index);
             listDiv.appendChild(item);
         });
     }
-}
 
-function abrirMusicaFinal(nomePasta, index) {
-    const musica = db.pastas[nomePasta][index];
-    ajustarVisibilidade('CIFRA_ABERTA');
-    
-    // Configura os dados da música no seu sistema antigo
-    originalCifraText = musica.content;
-    currentTransposedText = musica.content;
-    currentTone = musica.originalTone || "C";
-    
-    document.getElementById('orig-val').innerText = currentTone;
-    document.getElementById('curr-val').innerText = currentTone;
-    
-    renderCifraComCores(musica.content);
-    
-    // Sincroniza com os músicos
-    connections.forEach(c => {
-        if (c.open) c.send({ type: 'SYNC', body: musica.content, tone: currentTone });
-    });
-}
-
-// --- BIBLIOTECA E IMPORTAÇÃO ---
-function abrirModalBiblioteca() {
-    document.getElementById('modal-biblioteca').style.display = 'flex';
-    renderBiblioteca();
-}
-
-function fecharModalBiblioteca() {
-    document.getElementById('modal-biblioteca').style.display = 'none';
-}
-
-function renderBiblioteca() {
-    const container = document.getElementById('bib-list');
-    const busca = document.getElementById('bib-search').value.toLowerCase();
-    container.innerHTML = "";
-
-    db.biblioteca.filter(m => m.title.toLowerCase().includes(busca)).forEach(musica => {
-        const div = document.createElement('div');
-        div.className = 'song-item';
-        div.style.padding = '10px';
-        div.innerHTML = `
-            <span>${musica.title}</span>
-            <button onclick="adicionarDaBib('${musica.title}')" style="background:#2563eb; color:white; border:none; padding:5px 10px; border-radius:5px">Add</button>
-        `;
-        container.appendChild(div);
-    });
-}
-
-function adicionarDaBib(titulo) {
-    const musica = db.biblioteca.find(m => m.title === titulo);
-    if (musica && !db.pastas[pastaAtiva].some(m => m.title === titulo)) {
-        db.pastas[pastaAtiva].push(musica);
-        salvarDB();
-        abrirPasta(pastaAtiva);
-        fecharModalBiblioteca();
-    }
-}
-
-async function importarPeloLink() {
-    const url = prompt("Cole o link do Cifra Club:");
-    if (!url) return;
-
-    try {
-        // Usando sua lógica de fetch do Sync Musician
-        const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
-        const data = await res.json();
+    function abrirMusicaFinal(nomePasta, index) {
+        const musica = db.pastas[nomePasta][index];
+        ajustarVisibilidade('CIFRA_ABERTA');
+        currentTransposedText = musica.content;
+        renderCifraComCores(musica.content);
         
-        const novaMusica = { 
-            title: data.titulo || "Sem título", 
-            content: data.cifra, 
-            url: url, 
-            originalTone: "C" 
-        };
-
-        if (!db.biblioteca.some(m => m.title === novaMusica.title)) {
-            db.biblioteca.push(novaMusica);
-        }
-        db.pastas[pastaAtiva].push(novaMusica);
-        
-        salvarDB();
-        abrirPasta(pastaAtiva);
-        fecharModalBiblioteca();
-    } catch (e) { alert("Erro ao importar."); }
-}
-
-function salvarDB() {
-    localStorage.setItem('sync_musician_v7', JSON.stringify(db));
-}
-
-function criarPasta() {
-    const nome = prompt("Nome da nova pasta:");
-    if (nome && !db.pastas[nome]) {
-        db.pastas[nome] = [];
-        salvarDB();
-        renderPastas();
-    }
-}
-
-    function setupLeader() {
-    document.getElementById('senior-controls').classList.remove('hidden');
-    document.getElementById('senior-header-controls').classList.remove('hidden');
-    document.getElementById('btn-toggle-tone').style.display = 'block';
-    
-    peer.on('open', id => {
-        currentPeerId = id;
-        document.getElementById('status').innerText = "MODO: LÍDER";
-        document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
-    });
-
-    peer.on('connection', c => {
-        connections.push(c);
-        // Quando um músico conecta, se o líder já estiver com uma música aberta, envia para ele
-        c.on('open', () => { 
-            if (currentTransposedText) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone }); 
+        // Sincroniza se houver músicos conectados
+        connections.forEach(c => {
+            if (c.open) c.send({ type: 'SYNC', body: musica.content, tone: 'C' });
         });
-    });
-
-    wrapper.onscroll = () => { if (role === 'S' && !isScrolling) syncScrollPosition(); };
-    renderToneGrid();
-}
-
-    function setupMusician(id) {
-        peer.on('open', () => {
-            document.getElementById('status').innerText = "CONECTANDO AO LÍDER...";
-            const c = peer.connect(id);
-            handleMusicianConnection(c, id);
-        });
-    }
-
-    function handleMusicianConnection(c, id) {
-        c.on('open', () => {
-            document.getElementById('status').innerText = "MODO: MÚSICO (Conectado)";
-        });
-        c.on('data', data => {
-            if (data.type === 'SYNC') { 
-                renderCifraComCores(data.body); 
-                document.getElementById('curr-val').innerText = data.tone;
-                localStorage.setItem('last_viewed_song', data.body);
-            }
-            if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
-        });
-        c.on('close', () => {
-            document.getElementById('status').innerText = "CONEXÃO PERDIDA. RECONECTANDO...";
-            setTimeout(() => { if(role === 'M') setupMusician(id); }, 3000);
-        });
-    }
-
-    // --- ROLAGEM, CIFRAS E OUTRAS FUNÇÕES (MANTIDAS) ---
-    function scrollLoop() {
-        if (!isScrolling) return;
-        const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50); 
-        scrollPos += speed;
-        wrapper.scrollTop = Math.floor(scrollPos);
-        if (role === 'S') syncScrollPosition();
-        requestAnimationFrame(scrollLoop);
-    }
-
-    function toggleAutoScroll() {
-        const btn = document.getElementById('btn-play-scroll');
-        isScrolling = !isScrolling;
-        if (isScrolling) {
-            scrollPos = wrapper.scrollTop; 
-            btn.innerText = "STOP"; btn.style.background = "#b91c1c";
-            scrollLoop();
-        } else {
-            btn.innerText = "PLAY"; btn.style.background = "#059669";
-        }
-    }
-
-    function syncScrollPosition() {
-        connections.forEach(c => { if (c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
     }
 
     function renderCifraComCores(text) {
@@ -418,131 +231,52 @@ function criarPasta() {
         document.getElementById('cifra-container').innerHTML = html;
     }
 
-    async function addSong() {
-        const btn = document.getElementById('btn-save');
-        const urlInput = document.getElementById('url-input');
-        const url = urlInput.value.trim();
+    // --- FUNÇÕES DE LÓGICA ---
+    function criarPasta() {
+        const nome = prompt("Nome da pasta:");
+        if (nome && !db.pastas[nome]) {
+            db.pastas[nome] = [];
+            salvarDB();
+            renderPastas();
+        }
+    }
+
+    function abrirModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'flex'; }
+    function fecharModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'none'; }
+
+    async function importarPeloLink() {
+        const url = prompt("Link do Cifra Club:");
         if (!url) return;
-        btn.innerText = "CARREGANDO..."; btn.disabled = true;
         try {
             const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
             const data = await res.json();
-            savedSongs.push({ title: data.titulo || "Sem título", content: data.cifra, url: url, originalTone: "C" });
-            localStorage.setItem('setlist', JSON.stringify(savedSongs));
-            renderSetlist();
-            urlInput.value = '';
-        } catch (e) { alert("Erro ao carregar."); }
-        finally { btn.innerText = "+ SALVAR"; btn.disabled = false; }
+            const nova = { title: data.titulo, content: data.cifra };
+            db.pastas[pastaAtiva].push(nova);
+            salvarDB();
+            abrirPasta(pastaAtiva);
+            fecharModalBiblioteca();
+        } catch (e) { alert("Erro ao importar"); }
     }
 
-    function renderSetlist() {
-        const container = document.getElementById('setlist');
-        container.innerHTML = '';
-        savedSongs.forEach((song, index) => {
-            const div = document.createElement('div');
-            div.className = `song-item ${index === currentSongIndex ? 'active' : ''}`;
-            div.innerText = song.title;
-            div.onclick = () => selectSong(index);
-            container.appendChild(div);
+    function salvarDB() { localStorage.setItem('sync_musician_v7', JSON.stringify(db)); }
+    function goHome() { location.reload(); }
+
+    function setupLeader() {
+        peer.on('open', id => {
+            document.getElementById('status').innerText = "LÍDER: " + id;
+        });
+        peer.on('connection', c => connections.push(c));
+    }
+
+    function setupMusician(id) {
+        peer.on('open', () => {
+            const c = peer.connect(id);
+            c.on('open', () => document.getElementById('status').innerText = "CONECTADO");
+            c.on('data', data => {
+                if (data.type === 'SYNC') renderCifraComCores(data.body);
+            });
         });
     }
-
-    function selectSong(index) {
-        currentSongIndex = index;
-        const song = savedSongs[index];
-        originalCifraText = song.content;
-        currentTransposedText = song.content;
-        currentTone = song.originalTone;
-        baseNote = song.originalTone;
-        document.getElementById('orig-val').innerText = song.originalTone;
-        document.getElementById('curr-val').innerText = song.originalTone;
-        wrapper.scrollTop = 0; scrollPos = 0;
-        renderSetlist();
-        updateAndSync(currentTransposedText, currentTone);
-    }
-
-    function updateAndSync(text, tone) {
-        renderCifraComCores(text);
-        connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body: text, tone: tone }); });
-    }
-
-    function renderToneGrid() {
-        const grid = document.getElementById('tone-grid');
-        grid.innerHTML = '';
-        notes.forEach(note => {
-            const btn = document.createElement('button');
-            btn.className = 'btn-tone-pick'; btn.innerText = note;
-            btn.onclick = () => { selectDirectTone(note); toggleToneGrid(); };
-            grid.appendChild(btn);
-        });
-    }
-
-    function selectDirectTone(targetNote) {
-        if (currentSongIndex === -1) return;
-        const diff = notes.indexOf(targetNote) - notes.indexOf(baseNote);
-        currentTransposedText = transposeText(originalCifraText, diff);
-        currentTone = targetNote;
-        document.getElementById('curr-val').innerText = targetNote;
-        updateAndSync(currentTransposedText, currentTone);
-    }
-
-    function transposeText(text, diff) {
-        return text.replace(/[A-G][#b]?/g, (match) => {
-            let note = match.endsWith('b') ? ({"Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#"}[match] || match) : match;
-            let index = notes.indexOf(note);
-            if (index === -1) return match;
-            let newIndex = (index + diff) % 12;
-            while (newIndex < 0) newIndex += 12;
-            return notes[newIndex];
-        });
-    }
-
-    function toggleToneGrid() {
-        const grid = document.getElementById('tone-grid');
-        grid.style.display = (grid.style.display === 'grid') ? 'none' : 'grid';
-    }
-
-    function toggleScrollPanel() {
-        const panel = document.getElementById('scroll-panel');
-        panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
-    }
-
-    function copyID() { if (currentPeerId) navigator.clipboard.writeText(currentPeerId).then(() => alert("ID Copiado!")); }
-    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
-    function deleteCurrentSong() {
-        if (currentSongIndex === -1) return;
-        savedSongs.splice(currentSongIndex, 1);
-        localStorage.setItem('setlist', JSON.stringify(savedSongs));
-        currentSongIndex = -1; renderSetlist();
-        document.getElementById('cifra-container').innerHTML = "Música removida.";
-    }
-
-    function startScanner() {
-        const readerDiv = document.getElementById('reader');
-        readerDiv.style.display = 'block';
-        html5QrCode = new Html5Qrcode("reader");
-        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
-            document.getElementById('join-id').value = decodedText;
-            stopScanner();
-        }).catch(err => alert("Câmera não disponível"));
-    }
-
-    function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
 </script>
-    <div id="modal-biblioteca">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h3>Biblioteca Global</h3>
-        <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:#888; font-size:24px;">✕</button>
-    </div>
-    <input type="text" id="bib-search" placeholder="Pesquisar música salva..." 
-           style="width:100%; padding:12px; border-radius:8px; border:1px solid #333; background:#222; color:white;"
-           oninput="renderBiblioteca()">
-    <div id="bib-list" style="flex:1; overflow-y:auto; margin-top:15px; border:1px solid #222;"></div>
-    <button onclick="importarPeloLink()" style="margin-top:15px; padding:15px; background:#059669; color:white; border:none; border-radius:8px;">+ IMPORTAR NOVO LINK</button>
-</div>
 </body>
-
 </html>
-
-
-
