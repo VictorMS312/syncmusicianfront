@@ -1,43 +1,42 @@
 <!DOCTYPE html>
-<html lang="pt-br">  
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sync Musician v7.0</title>
+    <title>Sync Musician Pro </title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f1f1f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  
+
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="style.css">
     <style>
-        /* CSS ESSENCIAL PARA O FUNCIONAMENTO */
-        body { background: #000; color: #eee; font-family: sans-serif; margin: 0; }
-        .hidden { display: none !important; }
-        
-        /* Grid de Pastas */
+        /* Ajustes de UI para Pastas e Responsividade */
         .grid-pastas {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 15px;
             padding: 15px;
         }
         .card-pasta {
             background: #1a1a1a;
-            padding: 20px;
-            border-radius: 12px;
+            padding: 20px 10px;
+            border-radius: 15px;
             border: 1px solid #333;
             text-align: center;
             cursor: pointer;
+            transition: transform 0.2s;
+            word-wrap: break-word;
         }
-        .folder-icon { font-size: 40px; display: block; margin-bottom: 10px; }
-
-        /* Botão Flutuante + */
+        .card-pasta:active { transform: scale(0.95); }
+        .folder-icon { font-size: 40px; display: block; margin-bottom: 8px; }
+        
         .btn-floating {
             position: fixed;
-            bottom: 30px;
-            right: 30px;
+            bottom: 80px;
+            right: 25px;
             width: 60px;
             height: 60px;
             background: #2563eb;
@@ -45,195 +44,295 @@
             border-radius: 50%;
             border: none;
             font-size: 30px;
-            display: none; /* JS mostra quando necessário */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 999;
+            display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            z-index: 1000;
         }
 
+        .hidden { display: none !important; }
+        #reader { width: 100%; max-width: 300px; margin: 10px auto; border-radius: 10px; overflow: hidden; }
+        
         /* Modal Biblioteca */
         #modal-biblioteca {
             position: fixed;
             inset: 0;
             background: rgba(0,0,0,0.95);
-            z-index: 2000;
+            z-index: 10000;
             display: none;
             flex-direction: column;
             padding: 20px;
         }
-
-        /* Estilos legados do seu v6.0 */
-        .header { background: #1f1f1f; padding: 15px; display: flex; justify-content: space-between; border-bottom: 1px solid #333; }
-        .btn-main { background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px; cursor: pointer; }
-        #cifra-container { font-family: monospace; white-space: pre; padding: 20px; font-size: 16px; line-height: 1.5; }
-        .chord { color: #ff9800; font-weight: bold; }
-        .song-item { padding: 15px; border-bottom: 1px solid #222; background: #111; margin-bottom: 5px; border-radius: 8px; }
-        #cifra-wrapper { height: calc(100vh - 120px); overflow-y: auto; }
     </style>
 </head>
 <body>
 
 <div id="setup-screen" style="padding: 30px; text-align: center;">
-    <h1>Sync Musician v7.0</h1>
-    <p id="last-session-info" style="color: #888;"></p>
+    <h1 style="color: #fff; margin-bottom: 10px;">Sync Musician </h1>
+    <p id="last-session-info" style="font-size: 12px; color: #888; margin-bottom: 20px;"></p>
+
     <button onclick="initRole('S')" class="btn-main" style="width: 240px; margin-bottom: 20px;">SOU O LÍDER (Sênior)</button>
-    <div style="color: #555; margin: 20px;">OU</div>
-    <input type="text" id="join-id" placeholder="ID do Líder" style="padding: 12px; border-radius: 8px; border: 1px solid #333; background: #111; color: white;">
+    
+    <div style="margin: 20px 0; border-top: 1px solid #333; position: relative;">
+        <span style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); background: #000; padding: 0 10px; color: #555;">OU</span>
+    </div>
+
+    <div style="display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 20px;">
+        <input type="text" id="join-id" placeholder="ID do Líder" style="width: 150px; text-align: center; padding: 12px; border-radius: 8px; background: #111; color: #fff; border: 1px solid #333;">
+        <button onclick="startScanner()" style="background: #444; color: white; padding: 12px; border-radius: 8px; border: none;">📷</button>
+    </div>
+    <div id="reader"></div> 
+    
     <button onclick="initRole('M')" class="btn-main" style="background: #059669; width: 240px; margin-top: 10px;">CONECTAR COMO MÚSICO</button>
 </div>
 
 <div id="main-app" class="hidden">
+    <div id="qr-modal" class="qr-box" style="display:none">
+        <img id="qr-img" src="" alt="QR Code">
+        <button onclick="toggleQR()" style="background:#000; color:white; width:100%; padding:8px; border-radius:5px; margin-top:10px; border:1px solid #333;">FECHAR</button>
+    </div>
+
     <div class="header">
         <div id="status">Conectando...</div>
-        <div id="senior-header-controls" class="hidden">
-            <button onclick="copyID()">ID</button>
-            <button onclick="toggleQR()">QR</button>
+        <div id="senior-header-controls" class="hidden id-display">
+            <button class="btn-action" onclick="copyID()">COPIAR ID</button>
+            <button class="btn-action btn-qr" onclick="toggleQR()">QR</button>
         </div>
     </div>
 
-    <div id="senior-controls" class="hidden" style="padding: 10px; background: #111; display: flex; gap: 5px;">
-        <input type="text" id="url-input" placeholder="Link Cifra Club" style="flex: 1; padding: 8px;">
-        <button onclick="addSong()">SALVAR</button>
+    <div id="song-controls" class="hidden">
+        <div class="controls">
+            <div id="senior-controls" style="display: flex; gap: 5px; flex: 1;">
+                <button class="btn-danger" onclick="excluirMusicaAtual()" style="padding: 10px;">APAGAR</button>
+            </div>
+            <button class="btn-scroll-toggle" onclick="toggleScrollPanel()">SCROLL</button>
+        </div>
+
+        <div id="scroll-panel">
+            <div class="scroll-row">
+                <button id="btn-play-scroll" class="btn-action" onclick="toggleAutoScroll()" style="background: #059669; min-width: 100px;">PLAY</button>
+                <input type="range" id="scroll-speed" min="1" max="100" value="20">
+            </div>
+        </div>
     </div>
 
-    <div id="info-tom" style="display:none; padding: 10px; background: #111; border-bottom: 1px solid #222;">
-        TOM: <span id="curr-val" style="color: #ff9800;">-</span>
-    </div>
+    <div id="tone-grid"></div>
 
     <div id="cifra-wrapper">
-        <div id="cifra-container">Selecione uma pasta ou música...</div>
+        <div id="info-tom" class="hidden">
+            <div>
+                TOM: <span id="curr-val" class="tom-destaque">-</span>
+                <small>(Original: <span id="orig-val">-</span>)</small>
+            </div>
+            <button id="btn-toggle-tone" class="btn-action" onclick="toggleToneGrid()" style="background: #ff9800; color: #000;">ALTERAR TOM</button>
+        </div>
+        <div id="dynamic-content">
+            </div>
     </div>
 </div>
 
-<button class="btn-floating" onclick="abrirModalBiblioteca()">+</button>
-<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; left: 20px; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; display: none;">🏠</button>
+<button id="btn-floating-add" class="btn-floating hidden" onclick="abrirModalBiblioteca()">+</button>
+<button id="btn-home" onclick="goHome()" style="position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: #444; color: white; border-radius: 50%; width: 50px; height: 50px; border: none; font-size: 20px; display: none;">🏠</button>
 
 <div id="modal-biblioteca">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>Adicionar Música</h3>
-        <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:white; font-size:24px;">✕</button>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin:0">Adicionar à Pasta</h3>
+        <button onclick="fecharModalBiblioteca()" style="background:none; border:none; color:#888; font-size:24px;">✕</button>
     </div>
-    <button onclick="importarPeloLink()" style="padding:15px; background:#059669; color:white; border:none; border-radius:8px; margin: 10px 0;">+ IMPORTAR NOVO LINK</button>
-    <div id="bib-list" style="overflow-y: auto; flex: 1;"></div>
+    <input type="text" id="url-input" placeholder="Colar Link da Cifra" style="width:100%; padding:15px; border-radius:10px; background:#111; color:white; border:1px solid #333; margin-bottom:10px;">
+    <button onclick="importarPeloLink()" style="width:100%; padding:15px; background:#059669; color:white; border:none; border-radius:10px; font-weight:bold;">+ IMPORTAR DO LINK</button>
 </div>
 
 <script>
+    // --- DATABASE & MIGRATION ---
     let db = JSON.parse(localStorage.getItem('sync_musician_v7')) || {
-        pastas: { "Repertório Geral": [] },
-        biblioteca: []
+        pastas: { "Repertório Geral": [] }
     };
-    let pastaAtiva = "";
+
+    // Migrar dados do v6 se existirem
+    const oldSetlist = JSON.parse(localStorage.getItem('setlist'));
+    if (oldSetlist && oldSetlist.length > 0) {
+        db.pastas["Repertório Geral"] = [...db.pastas["Repertório Geral"], ...oldSetlist];
+        localStorage.removeItem('setlist');
+        localStorage.setItem('sync_musician_v7', JSON.stringify(db));
+    }
+
+    // --- VARIÁVEIS GLOBAIS ---
     let peer, connections = [], role = '';
-    let currentTransposedText = "", currentTone = "C";
+    let pastaAtiva = "", musicaAtivaIndex = -1;
+    let originalCifraText = "", currentTransposedText = "";
+    let baseNote = "C", currentTone = "-", isScrolling = false, scrollPos = 0, html5QrCode;
+    const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const wrapper = document.getElementById('cifra-wrapper');
+
+    // --- INICIALIZAÇÃO ---
+    window.onload = () => {
+        const lastLeaderId = localStorage.getItem('last_leader_id');
+        if (lastLeaderId) {
+            document.getElementById('join-id').value = lastLeaderId;
+            document.getElementById('last-session-info').innerText = "Último ID: " + lastLeaderId;
+        }
+    };
 
     function initRole(r) {
         role = r;
-        peer = new Peer(); 
-        
-        // MOSTRAR APP E ESCONDER SETUP
+        peer = new Peer();
         document.getElementById('setup-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
         document.getElementById('btn-home').style.display = 'block';
 
         if (role === 'S') {
             setupLeader();
-            renderPastas(); // Começa pelas pastas no modo líder
+            renderPastas();
         } else {
             const id = document.getElementById('join-id').value.trim();
-            if (!id) { alert("Insira o ID"); return goHome(); }
+            if (!id) { alert("ID necessário"); return goHome(); }
+            localStorage.setItem('last_leader_id', id);
             setupMusician(id);
         }
     }
 
-    function ajustarVisibilidade(tela) {
-        // IDs que PRECISAM existir no HTML acima:
-        const seniorCtrl = document.getElementById('senior-controls');
-        const seniorHeader = document.getElementById('senior-header-controls');
-        const infoTom = document.getElementById('info-tom');
-        const btnPlus = document.querySelector('.btn-floating');
-
-        seniorCtrl.classList.add('hidden');
-        seniorHeader.classList.add('hidden');
-        infoTom.style.display = 'none';
-        btnPlus.style.display = 'none';
-
-        if (tela === 'PASTAS') {
-            // Fica tudo escondido mesmo
-        } 
-        else if (tela === 'DENTRO_DA_PASTA') {
-            btnPlus.style.display = 'flex';
-        } 
-        else if (tela === 'CIFRA_ABERTA') {
-            seniorCtrl.classList.remove('hidden');
-            seniorHeader.classList.remove('hidden');
-            infoTom.style.display = 'block';
-        }
-    }
-
+    // --- NAVEGAÇÃO DE CONTEÚDO ---
     function renderPastas() {
-        ajustarVisibilidade('PASTAS');
-        const container = document.getElementById('cifra-container');
-        container.innerHTML = `
-            <div style="padding:10px">
-                <h2>Minhas Pastas</h2>
-                <div id="grid-pastas" class="grid-pastas"></div>
-                <button onclick="criarPasta()" style="width:100%; padding:15px; background:#222; color:#aaa; border-radius:10px; border: 1px dashed #444;">+ Nova Pasta</button>
-            </div>
-        `;
-
-        const grid = document.getElementById('grid-pastas');
+        pastaAtiva = ""; musicaAtivaIndex = -1;
+        document.getElementById('song-controls').classList.add('hidden');
+        document.getElementById('info-tom').classList.add('hidden');
+        document.getElementById('btn-floating-add').classList.add('hidden');
+        
+        let html = `<div style="padding:10px"><h2>Pastas</h2><div class="grid-pastas">`;
         Object.keys(db.pastas).forEach(nome => {
-            const card = document.createElement('div');
-            card.className = 'card-pasta';
-            card.innerHTML = `<span class="folder-icon">📁</span><strong>${nome}</strong>`;
-            card.onclick = () => abrirPasta(nome);
-            grid.appendChild(card);
+            html += `
+                <div class="card-pasta" onclick="abrirPasta('${nome}')">
+                    <span class="folder-icon">📁</span>
+                    <strong>${nome}</strong><br>
+                    <small style="color:#666">${db.pastas[nome].length} músicas</small>
+                </div>`;
         });
+        html += `</div><button onclick="criarPasta()" style="width:calc(100% - 30px); margin:15px; padding:15px; background:#222; color:#888; border:1px dashed #444; border-radius:10px;">+ Nova Pasta</button></div>`;
+        document.getElementById('dynamic-content').innerHTML = html;
     }
 
     function abrirPasta(nome) {
         pastaAtiva = nome;
-        ajustarVisibilidade('DENTRO_DA_PASTA');
-        const container = document.getElementById('cifra-container');
-        container.innerHTML = `
+        document.getElementById('btn-floating-add').classList.remove('hidden');
+        let html = `
             <div style="padding:15px">
-                <button onclick="renderPastas()" style="color:#2563eb; background:none; border:none; margin-bottom:10px">← Voltar</button>
+                <button onclick="renderPastas()" style="background:none; border:none; color:#2563eb; font-weight:bold; margin-bottom:15px;">← VOLTAR</button>
                 <h3>${nome}</h3>
-                <div id="lista-musicas"></div>
-            </div>
-        `;
-
-        const listDiv = document.getElementById('lista-musicas');
-        db.pastas[nome].forEach((musica, index) => {
-            const item = document.createElement('div');
-            item.className = 'song-item';
-            item.innerHTML = `<strong>${musica.title}</strong>`;
-            item.onclick = () => abrirMusicaFinal(nome, index);
-            listDiv.appendChild(item);
-        });
-    }
-
-    function abrirMusicaFinal(nomePasta, index) {
-        const musica = db.pastas[nomePasta][index];
-        ajustarVisibilidade('CIFRA_ABERTA');
-        currentTransposedText = musica.content;
-        renderCifraComCores(musica.content);
+                <div id="lista-musicas">`;
         
-        // Sincroniza se houver músicos conectados
-        connections.forEach(c => {
-            if (c.open) c.send({ type: 'SYNC', body: musica.content, tone: 'C' });
+        db.pastas[nome].forEach((m, i) => {
+            html += `<div class="song-item" onclick="abrirMusica(${i})"><strong>${m.title}</strong></div>`;
+        });
+
+        if (db.pastas[nome].length === 0) html += `<p style="color:#666; text-align:center; margin-top:30px;">Pasta vazia</p>`;
+        
+        html += `</div></div>`;
+        document.getElementById('dynamic-content').innerHTML = html;
+    }
+
+    function abrirMusica(index) {
+        musicaAtivaIndex = index;
+        const musica = db.pastas[pastaAtiva][index];
+        
+        originalCifraText = musica.content;
+        currentTransposedText = musica.content;
+        currentTone = musica.originalTone || "C";
+        baseNote = musica.originalTone || "C";
+
+        document.getElementById('dynamic-content').innerHTML = `<div id="cifra-container" style="padding:20px"></div>`;
+        document.getElementById('song-controls').classList.remove('hidden');
+        document.getElementById('info-tom').classList.remove('hidden');
+        document.getElementById('btn-floating-add').classList.add('hidden');
+        
+        document.getElementById('orig-val').innerText = baseNote;
+        document.getElementById('curr-val').innerText = currentTone;
+        
+        renderCifraComCores(currentTransposedText);
+        if (role === 'S') syncWithMusicians(currentTransposedText, currentTone);
+        wrapper.scrollTop = 0; scrollPos = 0;
+    }
+
+    // --- LÓGICA DE LÍDER / MÚSICO ---
+    function setupLeader() {
+        document.getElementById('senior-header-controls').classList.remove('hidden');
+        peer.on('open', id => {
+            document.getElementById('status').innerText = "LÍDER ID: " + id;
+            document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}`;
+        });
+        peer.on('connection', c => {
+            connections.push(c);
+            c.on('open', () => {
+                if (musicaAtivaIndex !== -1) c.send({ type: 'SYNC', body: currentTransposedText, tone: currentTone });
+            });
+        });
+        renderToneGrid();
+    }
+
+    function setupMusician(id) {
+        peer.on('open', () => {
+            document.getElementById('status').innerText = "CONECTANDO...";
+            const c = peer.connect(id);
+            c.on('open', () => { document.getElementById('status').innerText = "CONECTADO AO LÍDER"; });
+            c.on('data', data => {
+                if (data.type === 'SYNC') {
+                    document.getElementById('dynamic-content').innerHTML = `<div id="cifra-container" style="padding:20px"></div>`;
+                    document.getElementById('info-tom').classList.remove('hidden');
+                    renderCifraComCores(data.body);
+                    document.getElementById('curr-val').innerText = data.tone;
+                }
+                if (data.type === 'SCROLL') wrapper.scrollTop = data.pos;
+            });
         });
     }
 
+    // --- FERRAMENTAS (RESTAURADAS V6) ---
     function renderCifraComCores(text) {
         const html = text.replace(/[A-G][#b]?[mmax0-9s]*(?=\s|$|\/|\()/g, '<span class="chord">$&</span>');
-        document.getElementById('cifra-container').innerHTML = html;
+        const container = document.getElementById('cifra-container');
+        if (container) container.innerHTML = html;
     }
 
-    // --- FUNÇÕES DE LÓGICA ---
+    function renderToneGrid() {
+        const grid = document.getElementById('tone-grid');
+        grid.innerHTML = '';
+        notes.forEach(note => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-tone-pick'; btn.innerText = note;
+            btn.onclick = () => { selectDirectTone(note); toggleToneGrid(); };
+            grid.appendChild(btn);
+        });
+    }
+
+    function selectDirectTone(targetNote) {
+        if (musicaAtivaIndex === -1) return;
+        const diff = notes.indexOf(targetNote) - notes.indexOf(baseNote);
+        currentTransposedText = transposeText(originalCifraText, diff);
+        currentTone = targetNote;
+        document.getElementById('curr-val').innerText = targetNote;
+        renderCifraComCores(currentTransposedText);
+        syncWithMusicians(currentTransposedText, currentTone);
+    }
+
+    function transposeText(text, diff) {
+        return text.replace(/[A-G][#b]?/g, (match) => {
+            let note = match.endsWith('b') ? ({"Db":"C#", "Eb":"D#", "Gb":"F#", "Ab":"G#", "Bb":"A#"}[match] || match) : match;
+            let index = notes.indexOf(note);
+            if (index === -1) return match;
+            let newIndex = (index + diff) % 12;
+            while (newIndex < 0) newIndex += 12;
+            return notes[newIndex];
+        });
+    }
+
+    function syncWithMusicians(body, tone) {
+        connections.forEach(c => { if (c.open) c.send({ type: 'SYNC', body, tone }); });
+    }
+
+    // --- GERENCIAMENTO DE PASTA ---
     function criarPasta() {
-        const nome = prompt("Nome da pasta:");
+        const nome = prompt("Nome da nova pasta:");
         if (nome && !db.pastas[nome]) {
             db.pastas[nome] = [];
             salvarDB();
@@ -241,41 +340,79 @@
         }
     }
 
-    function abrirModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'flex'; }
-    function fecharModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'none'; }
-
     async function importarPeloLink() {
-        const url = prompt("Link do Cifra Club:");
+        const url = document.getElementById('url-input').value.trim();
         if (!url) return;
+        
+        const btn = document.querySelector('#modal-biblioteca button');
+        btn.innerText = "BAIXANDO..."; btn.disabled = true;
+
         try {
             const res = await fetch(`https://syncmusician.onrender.com/get-cifra?url=${encodeURIComponent(url)}`);
             const data = await res.json();
-            const nova = { title: data.titulo, content: data.cifra };
-            db.pastas[pastaAtiva].push(nova);
+            const novaMusica = { 
+                title: data.titulo || "Sem título", 
+                content: data.cifra, 
+                originalTone: "C" 
+            };
+            db.pastas[pastaAtiva].push(novaMusica);
             salvarDB();
             abrirPasta(pastaAtiva);
             fecharModalBiblioteca();
-        } catch (e) { alert("Erro ao importar"); }
+        } catch (e) { alert("Erro ao importar."); }
+        finally { btn.innerText = "+ IMPORTAR DO LINK"; btn.disabled = false; }
     }
 
+    function excluirMusicaAtual() {
+        if (confirm("Excluir esta música permanentemente?")) {
+            db.pastas[pastaAtiva].splice(musicaAtivaIndex, 1);
+            salvarDB();
+            abrirPasta(pastaAtiva);
+        }
+    }
+
+    // --- UTILITÁRIOS ---
     function salvarDB() { localStorage.setItem('sync_musician_v7', JSON.stringify(db)); }
     function goHome() { location.reload(); }
+    function toggleQR() { const q = document.getElementById('qr-modal'); q.style.display = q.style.display === 'block' ? 'none' : 'block'; }
+    function copyID() { if (peer.id) navigator.clipboard.writeText(peer.id).then(() => alert("ID Copiado!")); }
+    function toggleToneGrid() { const g = document.getElementById('tone-grid'); g.style.display = g.style.display === 'grid' ? 'none' : 'grid'; }
+    function toggleScrollPanel() { const p = document.getElementById('scroll-panel'); p.style.display = p.style.display === 'flex' ? 'none' : 'flex'; }
+    function abrirModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'flex'; }
+    function fecharModalBiblioteca() { document.getElementById('modal-biblioteca').style.display = 'none'; }
 
-    function setupLeader() {
-        peer.on('open', id => {
-            document.getElementById('status').innerText = "LÍDER: " + id;
-        });
-        peer.on('connection', c => connections.push(c));
+    // --- SCANNER QR ---
+    function startScanner() {
+        const readerDiv = document.getElementById('reader');
+        readerDiv.style.display = 'block';
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (decodedText) => {
+            document.getElementById('join-id').value = decodedText;
+            stopScanner();
+        }).catch(err => alert("Câmera não disponível"));
+    }
+    function stopScanner() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = 'none'; }); } }
+
+    // --- ROLAGEM AUTOMÁTICA ---
+    function scrollLoop() {
+        if (!isScrolling) return;
+        const speed = (parseFloat(document.getElementById('scroll-speed').value) / 50);
+        scrollPos += speed;
+        wrapper.scrollTop = Math.floor(scrollPos);
+        if (role === 'S') connections.forEach(c => { if(c.open) c.send({ type: 'SCROLL', pos: wrapper.scrollTop }); });
+        requestAnimationFrame(scrollLoop);
     }
 
-    function setupMusician(id) {
-        peer.on('open', () => {
-            const c = peer.connect(id);
-            c.on('open', () => document.getElementById('status').innerText = "CONECTADO");
-            c.on('data', data => {
-                if (data.type === 'SYNC') renderCifraComCores(data.body);
-            });
-        });
+    function toggleAutoScroll() {
+        const btn = document.getElementById('btn-play-scroll');
+        isScrolling = !isScrolling;
+        if (isScrolling) {
+            scrollPos = wrapper.scrollTop;
+            btn.innerText = "STOP"; btn.style.background = "#b91c1c";
+            scrollLoop();
+        } else {
+            btn.innerText = "PLAY"; btn.style.background = "#059669";
+        }
     }
 </script>
 </body>
